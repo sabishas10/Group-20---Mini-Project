@@ -585,25 +585,40 @@
                     </form>
                 </div>
 
-                <!-- Booked Time Slots Section -->
-                <div id="bookedSlotsSection" class="mt-2">
-                    <h3 class="text-center">Booked Time Slots</h3>
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Hall</th>
-                                    <th>Date</th>
-                                    <th>Start Time</th>
-                                    <th>End Time</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="bookedSlotsBody">
-                                <!-- JS will populate -->
-                            </tbody>
-                        </table>
-                    </div>
+                </div>
+            </div>
+
+            <!-- Existing Lecture Hall Bookings Section (New Requirement) -->
+            <div id="existingBookingsSection" class="mt-2">
+                <h3 class="text-center">Existing Lecture Hall Bookings</h3>
+                
+                <!-- Hall Filter -->
+                <div class="form-group" style="max-width: 300px; margin: 1rem auto;">
+                    <label for="hallFilter">Filter by Hall:</label>
+                    <select id="hallFilter" onchange="filterExistingBookings()">
+                        <option value="All">All Halls</option>
+                        <!-- JS will populate options -->
+                    </select>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Role</th>
+                                <th>Hall Number</th>
+                                <th>Date</th>
+                                <th>Start Time</th>
+                                <th>End Time</th>
+                                <th>Purpose</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="existingBookingsBody">
+                            <!-- JS will populate -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -800,7 +815,70 @@
                 container.appendChild(div);
             });
 
+            // New: Initialize Hall Filter and Table
+            initHallFilter();
+            renderAllBookingsTable();
             renderUserBookings();
+        }
+
+        function initHallFilter() {
+            const filter = document.getElementById('hallFilter');
+            if (!filter) return;
+            // Keep "All Halls" option
+            filter.innerHTML = '<option value="All">All Halls</option>';
+            halls.forEach(hall => {
+                const opt = document.createElement('option');
+                opt.value = hall.id;
+                opt.innerText = `Hall ${hall.id}`;
+                filter.appendChild(opt);
+            });
+        }
+
+        // --- New: Existing Bookings Table Logic ---
+        /**
+         * Dynamically populates the Existing Lecture Hall Bookings table.
+         * Can be filtered by a specific hall.
+         */
+        function renderAllBookingsTable(filterHall = 'All') {
+            const body = document.getElementById('existingBookingsBody');
+            if (!body) return;
+            body.innerHTML = '';
+            
+            let filteredBookings = bookings;
+            if (filterHall !== 'All') {
+                filteredBookings = bookings.filter(b => b.hall === filterHall);
+            }
+
+            if (filteredBookings.length === 0) {
+                body.innerHTML = '<tr><td colspan="8" class="text-center">No bookings found for this selection.</td></tr>';
+                return;
+            }
+
+            // Sort by date and start time (most recent date first)
+            filteredBookings.sort((a, b) => (b.date + b.startTime).localeCompare(a.date + a.startTime));
+
+            filteredBookings.forEach(b => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${b.userName}</td>
+                    <td>${b.userRole.charAt(0).toUpperCase() + b.userRole.slice(1)}</td>
+                    <td>${b.hall}</td>
+                    <td>${b.date}</td>
+                    <td>${b.startTime}</td>
+                    <td>${b.endTime}</td>
+                    <td>${b.purpose}</td>
+                    <td><span class="badge badge-${b.status.toLowerCase()}">${b.status}</span></td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        /**
+         * Triggered when the user changes the hall filter.
+         */
+        function filterExistingBookings() {
+            const selectedHall = document.getElementById('hallFilter').value;
+            renderAllBookingsTable(selectedHall);
         }
 
         function openBookingForm(hallId) {
@@ -810,38 +888,14 @@
             document.getElementById('bookUserName').value = currentUser.name;
             document.getElementById('bookUserRole').value = currentUser.role;
             
-            // Render booked slots for this specific hall
-            renderBookedSlots(hallId);
+            // Auto-filter the existing bookings table to this hall for convenience
+            const filter = document.getElementById('hallFilter');
+            if (filter) {
+                filter.value = hallId;
+                renderAllBookingsTable(hallId);
+            }
             
             window.scrollTo(0, document.getElementById('bookingFormWrapper').offsetTop - 100);
-        }
-
-        function renderBookedSlots(hallId) {
-            const body = document.getElementById('bookedSlotsBody');
-            body.innerHTML = '';
-            
-            // Filter bookings for this hall that are not declined
-            const hallBookings = bookings.filter(b => b.hall === hallId && b.status !== 'Declined');
-            
-            if (hallBookings.length === 0) {
-                body.innerHTML = '<tr><td colspan="5" class="text-center">No existing bookings for this hall.</td></tr>';
-                return;
-            }
-
-            // Sort by date and start time
-            hallBookings.sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
-
-            hallBookings.forEach(b => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${b.hall}</td>
-                    <td>${b.date}</td>
-                    <td>${b.startTime}</td>
-                    <td>${b.endTime}</td>
-                    <td><span class="badge badge-${b.status.toLowerCase()}">${b.status}</span></td>
-                `;
-                body.appendChild(tr);
-            });
         }
 
         function cancelBooking() {
@@ -862,10 +916,6 @@
             }
 
             // --- Time Clash Detection Logic ---
-            // 1. Filter bookings for the same hall and the same date.
-            // 2. Ignore 'Declined' bookings as they don't occupy the hall.
-            // 3. Check if the new time range overlaps with any existing booking.
-            //    Overlap condition: (NewStart < ExistingEnd) AND (NewEnd > ExistingStart)
             const hasClash = bookings.some(b => {
                 return b.hall === hall && 
                        b.date === date && 
@@ -896,6 +946,7 @@
             alert('Booking Request Sent!');
             cancelBooking();
             renderUserBookings();
+            renderAllBookingsTable(document.getElementById('hallFilter').value); // Update existing bookings table
         });
 
         function renderUserBookings() {
