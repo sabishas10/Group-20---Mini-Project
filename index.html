@@ -692,9 +692,9 @@
 
             if (currentUser) {
                 if (currentUser.role === 'admin') {
-                    navLinks.innerHTML += `<li><a onclick="showPage('admin-dashboard')">Dashboard</a></li>`;
+                    navLinks.innerHTML += `<li><a onclick="showPage('landing')">Home</a></li>`;
                 } else {
-                    navLinks.innerHTML += `<li><a onclick="showPage('booking-page')">Booking</a></li>`;
+                    navLinks.innerHTML += `<li><a onclick="showPage('landing')">Home</a></li>`;
                 }
                 navLinks.innerHTML += `<li><a class="btn-logout" onclick="logout()">Logout</a></li>`;
             } else {
