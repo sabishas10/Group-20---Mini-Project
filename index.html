@@ -363,7 +363,8 @@
                                 <th>Role</th>
                                 <th>Hall</th>
                                 <th>Date</th>
-                                <th>Time</th>
+                                <th>Start Time</th>
+                                <th>End Time</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -566,14 +567,12 @@
                             <input type="date" id="bookDate" required>
                         </div>
                         <div class="form-group">
-                            <label>Time Slot</label>
-                            <select id="bookTime" required>
-                                <option value="">Select Time</option>
-                                <option value="08:00 - 10:00">08:00 - 10:00</option>
-                                <option value="10:00 - 12:00">10:00 - 12:00</option>
-                                <option value="13:00 - 15:00">13:00 - 15:00</option>
-                                <option value="15:00 - 17:00">15:00 - 17:00</option>
-                            </select>
+                            <label>Start Time</label>
+                            <input type="time" id="bookStartTime" required>
+                        </div>
+                        <div class="form-group">
+                            <label>End Time</label>
+                            <input type="time" id="bookEndTime" required>
                         </div>
                         <div class="form-group">
                             <label>Purpose</label>
@@ -584,6 +583,27 @@
                             <button type="button" class="btn btn-outline" onclick="cancelBooking()">Cancel</button>
                         </div>
                     </form>
+                </div>
+
+                <!-- Booked Time Slots Section -->
+                <div id="bookedSlotsSection" class="mt-2">
+                    <h3 class="text-center">Booked Time Slots</h3>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Hall</th>
+                                    <th>Date</th>
+                                    <th>Start Time</th>
+                                    <th>End Time</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bookedSlotsBody">
+                                <!-- JS will populate -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -789,7 +809,39 @@
             document.getElementById('bookHallNumber').value = hallId;
             document.getElementById('bookUserName').value = currentUser.name;
             document.getElementById('bookUserRole').value = currentUser.role;
+            
+            // Render booked slots for this specific hall
+            renderBookedSlots(hallId);
+            
             window.scrollTo(0, document.getElementById('bookingFormWrapper').offsetTop - 100);
+        }
+
+        function renderBookedSlots(hallId) {
+            const body = document.getElementById('bookedSlotsBody');
+            body.innerHTML = '';
+            
+            // Filter bookings for this hall that are not declined
+            const hallBookings = bookings.filter(b => b.hall === hallId && b.status !== 'Declined');
+            
+            if (hallBookings.length === 0) {
+                body.innerHTML = '<tr><td colspan="5" class="text-center">No existing bookings for this hall.</td></tr>';
+                return;
+            }
+
+            // Sort by date and start time
+            hallBookings.sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
+
+            hallBookings.forEach(b => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${b.hall}</td>
+                    <td>${b.date}</td>
+                    <td>${b.startTime}</td>
+                    <td>${b.endTime}</td>
+                    <td><span class="badge badge-${b.status.toLowerCase()}">${b.status}</span></td>
+                `;
+                body.appendChild(tr);
+            });
         }
 
         function cancelBooking() {
@@ -799,14 +851,42 @@
 
         document.getElementById('hallBookingForm').addEventListener('submit', (e) => {
             e.preventDefault();
+            
+            const hall = document.getElementById('bookHallNumber').value;
+            const date = document.getElementById('bookDate').value;
+            const startTime = document.getElementById('bookStartTime').value;
+            const endTime = document.getElementById('bookEndTime').value;
+
+            if (startTime >= endTime) {
+                return alert('End time must be after start time.');
+            }
+
+            // --- Time Clash Detection Logic ---
+            // 1. Filter bookings for the same hall and the same date.
+            // 2. Ignore 'Declined' bookings as they don't occupy the hall.
+            // 3. Check if the new time range overlaps with any existing booking.
+            //    Overlap condition: (NewStart < ExistingEnd) AND (NewEnd > ExistingStart)
+            const hasClash = bookings.some(b => {
+                return b.hall === hall && 
+                       b.date === date && 
+                       b.status !== 'Declined' &&
+                       startTime < b.endTime && 
+                       endTime > b.startTime;
+            });
+
+            if (hasClash) {
+                return alert('This hall is already booked for the selected time. Please choose another time slot.');
+            }
+
             const booking = {
                 id: Date.now(),
-                hall: document.getElementById('bookHallNumber').value,
+                hall: hall,
                 userName: currentUser.name,
                 userEmail: currentUser.email,
                 userRole: currentUser.role,
-                date: document.getElementById('bookDate').value,
-                time: document.getElementById('bookTime').value,
+                date: date,
+                startTime: startTime,
+                endTime: endTime,
                 purpose: document.getElementById('bookPurpose').value,
                 status: 'Pending'
             };
@@ -833,7 +913,7 @@
                 tr.innerHTML = `
                     <td>${b.hall}</td>
                     <td>${b.date}</td>
-                    <td>${b.time}</td>
+                    <td>${b.startTime} - ${b.endTime}</td>
                     <td><span class="badge badge-${b.status.toLowerCase()}">${b.status}</span></td>
                 `;
                 body.appendChild(tr);
@@ -846,7 +926,7 @@
             bookingBody.innerHTML = '';
 
             if (bookings.length === 0) {
-                bookingBody.innerHTML = '<tr><td colspan="8" class="text-center">No booking requests.</td></tr>';
+                bookingBody.innerHTML = '<tr><td colspan="9" class="text-center">No booking requests.</td></tr>';
             } else {
                 bookings.slice().reverse().forEach(b => {
                     const tr = document.createElement('tr');
@@ -856,7 +936,8 @@
                         <td>${b.userRole}</td>
                         <td>${b.hall}</td>
                         <td>${b.date}</td>
-                        <td>${b.time}</td>
+                        <td>${b.startTime}</td>
+                        <td>${b.endTime}</td>
                         <td><span class="badge badge-${b.status.toLowerCase()}">${b.status}</span></td>
                         <td>
                             ${b.status === 'Pending' ? `
