@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UCSC Lecture Hall Booking System</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #0d47a1; /* UCSC Blue */
+            --secondary-color: #1565c0;
+            --accent-color: #ffd600;
+            --text-color: #333;
+            --bg-color: #f4f7f6;
+            --white: #ffffff;
+            --success: #2e7d32;
+            --danger: #c62828;
+            --pending: #fbc02d;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* --- Header & Navigation --- */
+        header {
+            background-color: var(--primary-color);
+            color: var(--white);
+            padding: 1rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: var(--shadow);
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        nav ul {
+            display: flex;
+            list-style: none;
+            gap: 20px;
+        }
+
+        nav a {
+            color: var(--white);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        nav a:hover {
+            color: var(--accent-color);
+        }
+
+        .btn-logout {
+            background: var(--danger);
+            padding: 5px 15px;
+            border-radius: 5px;
+        }
+
+        /* --- Global Layout --- */
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 20px;
+        }
+
+        section {
+            display: none; /* Hidden by default, shown via JS */
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- Cards & Components --- */
+        .card-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            cursor: pointer;
+            border-bottom: 5px solid transparent;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            border-bottom: 5px solid var(--primary-color);
+        }
+
+        .card i {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .card h3 {
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        /* --- Forms --- */
+        .form-container {
+            background: var(--white);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            max-width: 500px;
+            margin: 2rem auto;
+        }
+
+        .form-container h2 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: var(--primary-color);
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .btn {
+            display: inline-block;
+            background: var(--primary-color);
+            color: var(--white);
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            width: 100%;
+            transition: var(--transition);
+        }
+
+        .btn:hover {
+            background: var(--secondary-color);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary-color);
+            color: var(--white);
+        }
+
+        /* --- Tables --- */
+        .table-container {
+            overflow-x: auto;
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            margin-top: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background-color: var(--primary-color);
+            color: var(--white);
+        }
+
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+
+        /* Status Badges */
+        .badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: white;
+        }
+
+        .badge-pending { background-color: var(--pending); }
+        .badge-approved { background-color: var(--success); }
+        .badge-declined { background-color: var(--danger); }
+
+        /* --- Hall Display --- */
+        .hall-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .hall-card {
+            background: var(--white);
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            border-left: 5px solid var(--primary-color);
+        }
+
+        .hall-card h4 {
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+        }
+
+        .hall-card p {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 1rem;
+        }
+
+        /* --- Utilities --- */
+        .text-center { text-align: center; }
+        .mt-2 { margin-top: 2rem; }
+        .flex { display: flex; gap: 10px; }
+        .hidden { display: none !important; }
+
+        /* --- Responsive --- */
+        @media (max-width: 768px) {
+            header { flex-direction: column; text-align: center; gap: 15px; }
+            nav ul { flex-wrap: wrap; justify-content: center; }
+            .card-container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header / Navigation -->
+    <header>
+        <h1 onclick="goToHome()" style="cursor: pointer;">
+            <i class="fas fa-university"></i> UCSC Booking
+        </h1>
+        <nav id="main-nav">
+            <!-- Dynamic links added via JS -->
+            <ul id="nav-links">
+                <!-- Links will appear here -->
+            </ul>
+        </nav>
+    </header>
+
+    <div class="container">
+
+        <!-- 1. Landing Page -->
+        <section id="landing" class="active">
+            <div class="text-center">
+                <h1 style="font-size: 2.5rem; color: var(--primary-color);">UCSC Lecture Hall Booking System</h1>
+                <p>Welcome! Please select your role to continue.</p>
+            </div>
+            <div class="card-container">
+                <div class="card" onclick="showPage('admin-login')">
+                    <i class="fas fa-user-shield"></i>
+                    <h3>Continue as Admin</h3>
+                    <p>Manage bookings and users</p>
+                </div>
+                <div class="card" onclick="showPage('lecturer-choice')">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                    <h3>Continue as Lecturer</h3>
+                    <p>Request halls for lectures</p>
+                </div>
+                <div class="card" onclick="showPage('student-choice')">
+                    <i class="fas fa-user-graduate"></i>
+                    <h3>Continue as Student</h3>
+                    <p>Book halls for activities</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Admin Section -->
+        <!-- Admin Login -->
+        <section id="admin-login">
+            <div class="form-container">
+                <h2>Admin Login</h2>
+                <form id="adminLoginForm">
+                    <div class="form-group">
+                        <label>Admin Email</label>
+                        <input type="email" id="adminEmail" required placeholder="admin@ucsc.lk">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="adminPassword" required>
+                    </div>
+                    <button type="submit" class="btn">Login</button>
+                    <button type="button" class="btn btn-outline mt-2" onclick="goToHome()">Go Back</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Admin Dashboard -->
+        <section id="admin-dashboard">
+            <h2 class="text-center">Admin Dashboard</h2>
+            
+            <div class="mt-2">
+                <h3>Pending & Recent Bookings</h3>
+                <div class="table-container">
+                    <table id="adminBookingsTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Role</th>
+                                <th>Hall</th>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminBookingsBody">
+                            <!-- JS will populate -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="mt-2">
+                <h3>Registered Users</h3>
+                <div class="table-container">
+                    <table id="adminUsersTable">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>ID</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminUsersBody">
+                            <!-- JS will populate -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Lecturer Section -->
+        <!-- Lecturer Choice -->
+        <section id="lecturer-choice">
+            <div class="text-center">
+                <h2>Lecturer Portal</h2>
+                <div class="card-container">
+                    <div class="card" onclick="showPage('lecturer-login')">
+                        <i class="fas fa-sign-in-alt"></i>
+                        <h3>Login</h3>
+                    </div>
+                    <div class="card" onclick="showPage('lecturer-signup')">
+                        <i class="fas fa-user-plus"></i>
+                        <h3>Sign Up</h3>
+                    </div>
+                </div>
+                <button class="btn btn-outline mt-2" onclick="goToHome()">Go Back</button>
+            </div>
+        </section>
+
+        <!-- Lecturer Signup -->
+        <section id="lecturer-signup">
+            <div class="form-container">
+                <h2>Lecturer Sign Up</h2>
+                <form id="lecturerSignupForm">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="lecName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Lecturer ID</label>
+                        <input type="text" id="lecID" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="lecEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="lecPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm Password</label>
+                        <input type="password" id="lecConfirmPassword" required>
+                    </div>
+                    <button type="submit" class="btn">Sign Up</button>
+                    <p class="text-center mt-2">Already have an account? <a href="#" onclick="showPage('lecturer-login')">Login</a></p>
+                </form>
+            </div>
+        </section>
+
+        <!-- Lecturer Login -->
+        <section id="lecturer-login">
+            <div class="form-container">
+                <h2>Lecturer Login</h2>
+                <form id="lecturerLoginForm">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="lecLoginEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="lecLoginPassword" required>
+                    </div>
+                    <button type="submit" class="btn">Login</button>
+                    <p class="text-center mt-2">New here? <a href="#" onclick="showPage('lecturer-signup')">Sign Up</a></p>
+                </form>
+            </div>
+        </section>
+
+        <!-- 4. Student Section -->
+        <!-- Student Choice -->
+        <section id="student-choice">
+            <div class="text-center">
+                <h2>Student Portal</h2>
+                <div class="card-container">
+                    <div class="card" onclick="showPage('student-login')">
+                        <i class="fas fa-sign-in-alt"></i>
+                        <h3>Login</h3>
+                    </div>
+                    <div class="card" onclick="showPage('student-signup')">
+                        <i class="fas fa-user-plus"></i>
+                        <h3>Sign Up</h3>
+                    </div>
+                </div>
+                <button class="btn btn-outline mt-2" onclick="goToHome()">Go Back</button>
+            </div>
+        </section>
+
+        <!-- Student Signup -->
+        <section id="student-signup">
+            <div class="form-container">
+                <h2>Student Sign Up</h2>
+                <form id="studentSignupForm">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="stuName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Student ID</label>
+                        <input type="text" id="stuID" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Batch / Year</label>
+                        <input type="text" id="stuBatch" required placeholder="e.g. 2nd Year">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="stuEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="stuPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm Password</label>
+                        <input type="password" id="stuConfirmPassword" required>
+                    </div>
+                    <button type="submit" class="btn">Sign Up</button>
+                    <p class="text-center mt-2">Already have an account? <a href="#" onclick="showPage('student-login')">Login</a></p>
+                </form>
+            </div>
+        </section>
+
+        <!-- Student Login -->
+        <section id="student-login">
+            <div class="form-container">
+                <h2>Student Login</h2>
+                <form id="studentLoginForm">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="stuLoginEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="stuLoginPassword" required>
+                    </div>
+                    <button type="submit" class="btn">Login</button>
+                    <p class="text-center mt-2">New here? <a href="#" onclick="showPage('student-signup')">Sign Up</a></p>
+                </form>
+            </div>
+        </section>
+
+        <!-- 5. Booking Page (Shared) -->
+        <section id="booking-page">
+            <div class="text-center">
+                <h2>Available Lecture Halls</h2>
+                <p>Select a hall to make a booking request.</p>
+            </div>
+            <div class="hall-grid" id="hallsContainer">
+                <!-- JS will populate -->
+            </div>
+
+            <!-- Booking Modal/Form (Hidden initially) -->
+            <div id="bookingFormWrapper" class="hidden mt-2">
+                <div class="form-container">
+                    <h2 id="bookingHallTitle">Book Hall</h2>
+                    <form id="hallBookingForm">
+                        <input type="hidden" id="bookHallNumber">
+                        <div class="form-group">
+                            <label>Name</label>
+                            <input type="text" id="bookUserName" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Role</label>
+                            <input type="text" id="bookUserRole" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="date" id="bookDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Time Slot</label>
+                            <select id="bookTime" required>
+                                <option value="">Select Time</option>
+                                <option value="08:00 - 10:00">08:00 - 10:00</option>
+                                <option value="10:00 - 12:00">10:00 - 12:00</option>
+                                <option value="13:00 - 15:00">13:00 - 15:00</option>
+                                <option value="15:00 - 17:00">15:00 - 17:00</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Purpose</label>
+                            <textarea id="bookPurpose" rows="3" required placeholder="Reason for booking..."></textarea>
+                        </div>
+                        <div class="flex">
+                            <button type="submit" class="btn">Submit Request</button>
+                            <button type="button" class="btn btn-outline" onclick="cancelBooking()">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="mt-2">
+                <h3>Your Bookings</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Hall</th>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userBookingsBody">
+                            <!-- JS will populate -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // --- Data Management ---
+        const halls = [
+            { id: 'S104', capacity: 180, notes: 'Standard Hall' },
+            { id: 'S102', capacity: 20, notes: 'Discussion Room' },
+            { id: 'S202', capacity: 50, notes: 'Tutorial Hall' },
+            { id: 'S203', capacity: 100, notes: 'Lecture Room' },
+            { id: 'W001', capacity: 120, notes: 'West Wing' },
+            { id: 'W002', capacity: 120, notes: 'West Wing' },
+            { id: 'E205', capacity: 120, notes: 'Mini Auditorium' },
+            { id: 'E401', capacity: 200, notes: 'Main Hall' }
+        ];
+
+        let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+        let users = JSON.parse(localStorage.getItem('users')) || [];
+        let bookings = JSON.parse(localStorage.getItem('bookings')) || [];
+
+        // --- Navigation ---
+        function showPage(pageId) {
+            // Hide all sections
+            document.querySelectorAll('section').forEach(sec => sec.style.display = 'none');
+            // Show target section
+            const target = document.getElementById(pageId);
+            if (target) {
+                target.style.display = 'block';
+                window.scrollTo(0, 0);
+            }
+            updateNav();
+            
+            // Context-specific loading
+            if (pageId === 'admin-dashboard') renderAdminDashboard();
+            if (pageId === 'booking-page') renderBookingPage();
+        }
+
+        function goToHome() {
+            if (currentUser) {
+                if (currentUser.role === 'admin') showPage('admin-dashboard');
+                else showPage('booking-page');
+            } else {
+                showPage('landing');
+            }
+        }
+
+        function updateNav() {
+            const navLinks = document.getElementById('nav-links');
+            navLinks.innerHTML = '';
+
+            if (currentUser) {
+                if (currentUser.role === 'admin') {
+                    navLinks.innerHTML += `<li><a onclick="showPage('admin-dashboard')">Dashboard</a></li>`;
+                } else {
+                    navLinks.innerHTML += `<li><a onclick="showPage('booking-page')">Booking</a></li>`;
+                }
+                navLinks.innerHTML += `<li><a class="btn-logout" onclick="logout()">Logout</a></li>`;
+            } else {
+                navLinks.innerHTML += `<li><a onclick="showPage('landing')">Home</a></li>`;
+                navLinks.innerHTML += `<li><a onclick="showPage('admin-login')">Admin</a></li>`;
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('currentUser');
+            currentUser = null;
+            showPage('landing');
+        }
+
+        // --- Authentication ---
+        // Admin Login
+        document.getElementById('adminLoginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('adminEmail').value;
+            const password = document.getElementById('adminPassword').value;
+
+            if (email === 'admin@ucsc.lk' && password === 'admin123') {
+                currentUser = { name: 'Admin', role: 'admin', email: email };
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                showPage('admin-dashboard');
+            } else {
+                alert('Invalid Admin Credentials');
+            }
+        });
+
+        // Lecturer Signup
+        document.getElementById('lecturerSignupForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('lecName').value;
+            const id = document.getElementById('lecID').value;
+            const email = document.getElementById('lecEmail').value;
+            const pass = document.getElementById('lecPassword').value;
+            const confirm = document.getElementById('lecConfirmPassword').value;
+
+            if (pass !== confirm) return alert('Passwords do not match');
+            if (users.find(u => u.email === email)) return alert('Email already registered');
+
+            const newUser = { name, id, email, password: pass, role: 'lecturer' };
+            users.push(newUser);
+            localStorage.setItem('users', JSON.stringify(users));
+            alert('Signup Successful! Please Login.');
+            showPage('lecturer-login');
+        });
+
+        // Lecturer Login
+        document.getElementById('lecturerLoginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('lecLoginEmail').value;
+            const pass = document.getElementById('lecLoginPassword').value;
+
+            const user = users.find(u => u.email === email && u.password === pass && u.role === 'lecturer');
+            if (user) {
+                currentUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                showPage('booking-page');
+            } else {
+                alert('Invalid Credentials');
+            }
+        });
+
+        // Student Signup
+        document.getElementById('studentSignupForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('stuName').value;
+            const id = document.getElementById('stuID').value;
+            const batch = document.getElementById('stuBatch').value;
+            const email = document.getElementById('stuEmail').value;
+            const pass = document.getElementById('stuPassword').value;
+            const confirm = document.getElementById('stuConfirmPassword').value;
+
+            if (pass !== confirm) return alert('Passwords do not match');
+            if (users.find(u => u.email === email)) return alert('Email already registered');
+
+            const newUser = { name, id, batch, email, password: pass, role: 'student' };
+            users.push(newUser);
+            localStorage.setItem('users', JSON.stringify(users));
+            alert('Signup Successful! Please Login.');
+            showPage('student-login');
+        });
+
+        // Student Login
+        document.getElementById('studentLoginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('stuLoginEmail').value;
+            const pass = document.getElementById('stuLoginPassword').value;
+
+            const user = users.find(u => u.email === email && u.password === pass && u.role === 'student');
+            if (user) {
+                currentUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                showPage('booking-page');
+            } else {
+                alert('Invalid Credentials');
+            }
+        });
+
+        // --- Hall Booking Logic ---
+        function renderBookingPage() {
+            const container = document.getElementById('hallsContainer');
+            container.innerHTML = '';
+            
+            halls.forEach(hall => {
+                const div = document.createElement('div');
+                div.className = 'hall-card';
+                div.innerHTML = `
+                    <h4>Hall ${hall.id}</h4>
+                    <p><i class="fas fa-users"></i> Capacity: ${hall.capacity}</p>
+                    <p><i class="fas fa-info-circle"></i> ${hall.notes}</p>
+                    <button class="btn btn-outline" onclick="openBookingForm('${hall.id}')">Book Now</button>
+                `;
+                container.appendChild(div);
+            });
+
+            renderUserBookings();
+        }
+
+        function openBookingForm(hallId) {
+            document.getElementById('bookingFormWrapper').classList.remove('hidden');
+            document.getElementById('bookingHallTitle').innerText = `Book Hall ${hallId}`;
+            document.getElementById('bookHallNumber').value = hallId;
+            document.getElementById('bookUserName').value = currentUser.name;
+            document.getElementById('bookUserRole').value = currentUser.role;
+            window.scrollTo(0, document.getElementById('bookingFormWrapper').offsetTop - 100);
+        }
+
+        function cancelBooking() {
+            document.getElementById('bookingFormWrapper').classList.add('hidden');
+            document.getElementById('hallBookingForm').reset();
+        }
+
+        document.getElementById('hallBookingForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const booking = {
+                id: Date.now(),
+                hall: document.getElementById('bookHallNumber').value,
+                userName: currentUser.name,
+                userEmail: currentUser.email,
+                userRole: currentUser.role,
+                date: document.getElementById('bookDate').value,
+                time: document.getElementById('bookTime').value,
+                purpose: document.getElementById('bookPurpose').value,
+                status: 'Pending'
+            };
+
+            bookings.push(booking);
+            localStorage.setItem('bookings', JSON.stringify(bookings));
+            alert('Booking Request Sent!');
+            cancelBooking();
+            renderUserBookings();
+        });
+
+        function renderUserBookings() {
+            const body = document.getElementById('userBookingsBody');
+            body.innerHTML = '';
+            
+            const myBookings = bookings.filter(b => b.userEmail === currentUser.email);
+            if (myBookings.length === 0) {
+                body.innerHTML = '<tr><td colspan="4" class="text-center">No bookings found.</td></tr>';
+                return;
+            }
+
+            myBookings.reverse().forEach(b => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${b.hall}</td>
+                    <td>${b.date}</td>
+                    <td>${b.time}</td>
+                    <td><span class="badge badge-${b.status.toLowerCase()}">${b.status}</span></td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        // --- Admin Management ---
+        function renderAdminDashboard() {
+            const bookingBody = document.getElementById('adminBookingsBody');
+            bookingBody.innerHTML = '';
+
+            if (bookings.length === 0) {
+                bookingBody.innerHTML = '<tr><td colspan="8" class="text-center">No booking requests.</td></tr>';
+            } else {
+                bookings.slice().reverse().forEach(b => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${b.id.toString().slice(-4)}</td>
+                        <td>${b.userName}</td>
+                        <td>${b.userRole}</td>
+                        <td>${b.hall}</td>
+                        <td>${b.date}</td>
+                        <td>${b.time}</td>
+                        <td><span class="badge badge-${b.status.toLowerCase()}">${b.status}</span></td>
+                        <td>
+                            ${b.status === 'Pending' ? `
+                                <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem; border-color: green; color: green;" onclick="updateBookingStatus(${b.id}, 'Approved')">Approve</button>
+                                <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem; border-color: red; color: red;" onclick="updateBookingStatus(${b.id}, 'Declined')">Reject</button>
+                            ` : '-'}
+                        </td>
+                    `;
+                    bookingBody.appendChild(tr);
+                });
+            }
+
+            const userBody = document.getElementById('adminUsersBody');
+            userBody.innerHTML = '';
+            if (users.length === 0) {
+                userBody.innerHTML = '<tr><td colspan="4" class="text-center">No users registered.</td></tr>';
+            } else {
+                users.forEach(u => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${u.name}</td>
+                        <td>${u.id || '-'}</td>
+                        <td>${u.email}</td>
+                        <td>${u.role}</td>
+                    `;
+                    userBody.appendChild(tr);
+                });
+            }
+        }
+
+        function updateBookingStatus(id, newStatus) {
+            const index = bookings.findIndex(b => b.id === id);
+            if (index !== -1) {
+                bookings[index].status = newStatus;
+                localStorage.setItem('bookings', JSON.stringify(bookings));
+                renderAdminDashboard();
+            }
+        }
+
+        // --- Init ---
+        // Seed some data if empty (optional)
+        if (users.length === 0) {
+            // Optional: add a dummy student/lecturer for testing
+        }
+
+        // Initial Page Load
+        window.onload = () => {
+            if (currentUser) {
+                goToHome();
+            } else {
+                showPage('landing');
+            }
+        };
+
+    </script>
+</body>
+</html>
