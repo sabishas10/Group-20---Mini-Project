@@ -272,6 +272,52 @@
             margin-bottom: 1rem;
         }
 
+        /* --- Filter Panel --- */
+        .filter-panel {
+            background: var(--white);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: flex-end;
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-group {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .filter-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            font-size: 0.85rem;
+            color: var(--primary-color);
+        }
+
+        .filter-group input, .filter-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .filter-actions .btn {
+            width: auto;
+            padding: 10px 20px;
+            white-space: nowrap;
+        }
+
         /* --- Utilities --- */
         .text-center { text-align: center; }
         .mt-2 { margin-top: 2rem; }
@@ -586,17 +632,55 @@
                 </div>
             </div>
 
-            <!-- Existing Lecture Hall Bookings Section (New Requirement) -->
+            <!-- Existing Lecture Hall Bookings Section -->
             <div id="existingBookingsSection" class="mt-2">
                 <h3 class="text-center">Existing Lecture Hall Bookings</h3>
                 
-                <!-- Hall Filter -->
-                <div class="form-group" style="max-width: 300px; margin: 1rem auto;">
-                    <label for="hallFilter">Filter by Hall:</label>
-                    <select id="hallFilter" onchange="filterExistingBookings()">
-                        <option value="All">All Halls</option>
-                        <!-- JS will populate options -->
-                    </select>
+                <!-- Filter Panel -->
+                <div class="filter-panel">
+                    <div class="filter-group">
+                        <label>Date Filter</label>
+                        <input type="date" id="filterDate">
+                    </div>
+                    <div class="filter-group">
+                        <label>Lecture Hall Filter</label>
+                        <select id="filterHall">
+                            <option value="All">All Halls</option>
+                            <option value="S104">S104</option>
+                            <option value="S102">S102</option>
+                            <option value="S202">S202</option>
+                            <option value="S203">S203</option>
+                            <option value="W001">W001</option>
+                            <option value="W002">W002</option>
+                            <option value="E205">E205 (Mini Auditorium)</option>
+                            <option value="E401">E401</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Role Filter</label>
+                        <select id="filterRole">
+                            <option value="All">All</option>
+                            <option value="student">Student</option>
+                            <option value="lecturer">Lecturer</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Name Filter</label>
+                        <input type="text" id="filterName" placeholder="Search name...">
+                    </div>
+                    <div class="filter-group">
+                        <label>Status Filter</label>
+                        <select id="filterStatus">
+                            <option value="All">All</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Declined">Declined</option>
+                        </select>
+                    </div>
+                    <div class="filter-actions">
+                        <button class="btn" onclick="applyFilters()">Apply Filter</button>
+                        <button class="btn btn-outline" onclick="clearFilters()">Clear Filter</button>
+                    </div>
                 </div>
 
                 <div class="table-container">
@@ -813,48 +897,48 @@
                 container.appendChild(div);
             });
 
-            // New: Initialize Hall Filter and Table
-            initHallFilter();
+            // Initialize Table
             renderAllBookingsTable();
             renderUserBookings();
         }
 
-        function initHallFilter() {
-            const filter = document.getElementById('hallFilter');
-            if (!filter) return;
-            // Keep "All Halls" option
-            filter.innerHTML = '<option value="All">All Halls</option>';
-            halls.forEach(hall => {
-                const opt = document.createElement('option');
-                opt.value = hall.id;
-                opt.innerText = `Hall ${hall.id}`;
-                filter.appendChild(opt);
-            });
-        }
-
-        // --- New: Existing Bookings Table Logic ---
+        // --- Filtering Logic ---
         /**
-         * Dynamically populates the Existing Lecture Hall Bookings table.
-         * Can be filtered by a specific hall.
+         * Retrieves all bookings from localStorage (via the bookings array)
+         * and applies selected filter conditions. Updates the table with results.
          */
-        function renderAllBookingsTable(filterHall = 'All') {
+        function renderAllBookingsTable() {
             const body = document.getElementById('existingBookingsBody');
             if (!body) return;
             body.innerHTML = '';
             
-            let filteredBookings = bookings;
-            if (filterHall !== 'All') {
-                filteredBookings = bookings.filter(b => b.hall === filterHall);
-            }
+            // Get current filter values from the UI
+            const filterDate = document.getElementById('filterDate').value;
+            const filterHall = document.getElementById('filterHall').value;
+            const filterRole = document.getElementById('filterRole').value;
+            const filterName = document.getElementById('filterName').value.toLowerCase();
+            const filterStatus = document.getElementById('filterStatus').value;
+
+            // Apply selected filter conditions using .filter()
+            let filteredBookings = bookings.filter(b => {
+                const matchesDate = filterDate === '' || b.date === filterDate;
+                const matchesHall = filterHall === 'All' || b.hall === filterHall;
+                const matchesRole = filterRole === 'All' || b.userRole.toLowerCase() === filterRole.toLowerCase();
+                const matchesName = filterName === '' || b.userName.toLowerCase().includes(filterName);
+                const matchesStatus = filterStatus === 'All' || b.status === filterStatus;
+
+                return matchesDate && matchesHall && matchesRole && matchesName && matchesStatus;
+            });
 
             if (filteredBookings.length === 0) {
-                body.innerHTML = '<tr><td colspan="8" class="text-center">No bookings found for this selection.</td></tr>';
+                body.innerHTML = '<tr><td colspan="8" class="text-center">No bookings found for these filters.</td></tr>';
                 return;
             }
 
             // Sort by date and start time (most recent date first)
             filteredBookings.sort((a, b) => (b.date + b.startTime).localeCompare(a.date + a.startTime));
 
+            // Update the table with filtered results
             filteredBookings.forEach(b => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
@@ -872,11 +956,22 @@
         }
 
         /**
-         * Triggered when the user changes the hall filter.
+         * Triggered when the 'Apply Filter' button is clicked.
          */
-        function filterExistingBookings() {
-            const selectedHall = document.getElementById('hallFilter').value;
-            renderAllBookingsTable(selectedHall);
+        function applyFilters() {
+            renderAllBookingsTable();
+        }
+
+        /**
+         * Resets all filter inputs and refreshes the table.
+         */
+        function clearFilters() {
+            document.getElementById('filterDate').value = '';
+            document.getElementById('filterHall').value = 'All';
+            document.getElementById('filterRole').value = 'All';
+            document.getElementById('filterName').value = '';
+            document.getElementById('filterStatus').value = 'All';
+            renderAllBookingsTable();
         }
 
         function openBookingForm(hallId) {
@@ -887,10 +982,10 @@
             document.getElementById('bookUserRole').value = currentUser.role;
             
             // Auto-filter the existing bookings table to this hall for convenience
-            const filter = document.getElementById('hallFilter');
+            const filter = document.getElementById('filterHall');
             if (filter) {
                 filter.value = hallId;
-                renderAllBookingsTable(hallId);
+                renderAllBookingsTable();
             }
             
             window.scrollTo(0, document.getElementById('bookingFormWrapper').offsetTop - 100);
@@ -944,7 +1039,7 @@
             alert('Booking Request Sent!');
             cancelBooking();
             renderUserBookings();
-            renderAllBookingsTable(document.getElementById('hallFilter').value); // Update existing bookings table
+            renderAllBookingsTable(); // Update existing bookings table
         });
 
         function renderUserBookings() {
