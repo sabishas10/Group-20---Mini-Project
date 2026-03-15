@@ -566,6 +566,41 @@
             to { transform: translateX(0); opacity: 1; }
         }
 
+        /* --- Message History Box --- */
+        .message-history-container {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            margin-top: 2rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .message-history-list {
+            max-height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding-right: 10px;
+        }
+
+        .history-item {
+            padding: 12px;
+            background: var(--bg-color);
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-color);
+            font-size: 0.9rem;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .history-item .history-date {
+            font-size: 0.75rem;
+            color: #777;
+            display: block;
+            margin-bottom: 4px;
+        }
+
         /* --- Responsive --- */
         @media (max-width: 768px) {
             header { flex-direction: column; text-align: center; gap: 15px; }
@@ -1073,6 +1108,17 @@
                     </table>
                 </div>
             </div>
+
+            <!-- Message History Box -->
+            <div class="message-history-container">
+                <h3 style="margin-bottom: 1rem; color: var(--primary-color);">
+                    <i class="fas fa-history"></i> Notification History
+                </h3>
+                <div id="messageHistoryList" class="message-history-list">
+                    <!-- History items will be appended here -->
+                    <p class="text-center" style="color: #777; margin-top: 10px;">No message history yet.</p>
+                </div>
+            </div>
         </section>
 
         <!-- 6. Messages Page (New) -->
@@ -1184,6 +1230,7 @@
         }
 
         function showNotificationPopup(message) {
+            // 1. Show Toast
             const toast = document.createElement('div');
             toast.className = 'notification-toast';
             toast.innerHTML = `
@@ -1200,7 +1247,61 @@
             setTimeout(() => {
                 toast.classList.add('fade-out');
                 setTimeout(() => toast.remove(), 500);
-            }, 6000); // 6 seconds visibility
+            }, 6000);
+
+            // 2. Append to Persistent History UI
+            appendMessageToHistory(message, new Date().toISOString());
+        }
+
+        function appendMessageToHistory(message, dateIso) {
+            const list = document.getElementById('messageHistoryList');
+            if (!list) return;
+
+            // Remove "No history" placeholder if it exists
+            if (list.querySelector('p')) {
+                list.innerHTML = '';
+            }
+
+            const date = new Date(dateIso);
+            const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+            const item = document.createElement('div');
+            item.className = 'history-item';
+            item.innerHTML = `
+                <span class="history-date">${dateStr}</span>
+                <div>${message}</div>
+            `;
+            // Add to top of history
+            list.insertBefore(item, list.firstChild);
+        }
+
+        function renderMessageHistory() {
+            if (!currentUser) return;
+            const list = document.getElementById('messageHistoryList');
+            if (!list) return;
+
+            const notifications = JSON.parse(localStorage.getItem('userNotifications')) || [];
+            const userHistory = notifications.filter(n => n.userEmail === currentUser.email);
+
+            if (userHistory.length === 0) {
+                list.innerHTML = '<p class="text-center" style="color: #777; margin-top: 10px;">No message history yet.</p>';
+                return;
+            }
+
+            list.innerHTML = '';
+            // Show latest first
+            userHistory.reverse().forEach(n => {
+                const date = new Date(n.date);
+                const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.innerHTML = `
+                    <span class="history-date">${dateStr}</span>
+                    <div>${n.message}</div>
+                `;
+                list.appendChild(item);
+            });
         }
 
         function showStoredNotifications(userEmail) {
@@ -1221,6 +1322,9 @@
             if (updated) {
                 localStorage.setItem('userNotifications', JSON.stringify(notifications));
             }
+
+            // Also refresh the history box view
+            renderMessageHistory();
         }
 
         function adminCancelApprovedBooking(id) {
