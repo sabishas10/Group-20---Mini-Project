@@ -534,6 +534,38 @@
         .flex { display: flex; gap: 10px; }
         .hidden { display: none !important; }
 
+        /* --- Notification Toast --- */
+        .notification-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--primary-color);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 3000;
+            animation: slideIn 0.3s ease-out;
+            max-width: 400px;
+            border-left: 5px solid var(--accent-color);
+        }
+
+        .notification-toast.fade-out {
+            opacity: 0;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .notification-content {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
         /* --- Responsive --- */
         @media (max-width: 768px) {
             header { flex-direction: column; text-align: center; gap: 15px; }
@@ -1130,6 +1162,95 @@
 
     <!-- JavaScript -->
     <script>
+        // --- Notification System ---
+        function createNotification(userEmail, message) {
+            const notifications = JSON.parse(localStorage.getItem('userNotifications')) || [];
+            notifications.push({
+                userEmail: userEmail,
+                message: message,
+                date: new Date().toISOString(),
+                read: false
+            });
+            localStorage.setItem('userNotifications', JSON.stringify(notifications));
+            
+            // If the user is currently logged in, show it immediately
+            if (currentUser && currentUser.email === userEmail) {
+                showNotificationPopup(message);
+                // Mark as read if shown immediately
+                const lastIdx = notifications.length - 1;
+                notifications[lastIdx].read = true;
+                localStorage.setItem('userNotifications', JSON.stringify(notifications));
+            }
+        }
+
+        function showNotificationPopup(message) {
+            const toast = document.createElement('div');
+            toast.className = 'notification-toast';
+            toast.innerHTML = `
+                <div class="notification-content">
+                    <i class="fas fa-bell" style="font-size: 1.5rem; color: var(--accent-color);"></i>
+                    <div>
+                        <strong style="display:block; margin-bottom: 2px;">Notification</strong>
+                        <span style="font-size: 0.9rem;">${message}</span>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('fade-out');
+                setTimeout(() => toast.remove(), 500);
+            }, 6000); // 6 seconds visibility
+        }
+
+        function showStoredNotifications(userEmail) {
+            const notifications = JSON.parse(localStorage.getItem('userNotifications')) || [];
+            let updated = false;
+            
+            // Filter unread notifications for this user
+            const unread = notifications.filter(n => n.userEmail === userEmail && !n.read);
+            
+            unread.forEach((n, index) => {
+                setTimeout(() => {
+                    showNotificationPopup(n.message);
+                }, index * 1000); // Stagger popups
+                n.read = true;
+                updated = true;
+            });
+            
+            if (updated) {
+                localStorage.setItem('userNotifications', JSON.stringify(notifications));
+            }
+        }
+
+        function adminCancelApprovedBooking(id) {
+            const booking = bookings.find(b => b.id === id);
+            if (!booking) return;
+
+            const reason = prompt("Enter cancellation reason:");
+            if (reason === null) return; // Admin clicked cancel
+
+            if (reason.trim() === "") {
+                alert("Cancellation reason is required.");
+                return;
+            }
+
+            const resourceName = booking.bookingType === 'Hall' ? `Hall ${booking.hallNumber}` : `${booking.labName} - ${booking.computerNumber}`;
+            const message = `Your approved booking for ${resourceName} on ${booking.date} from ${booking.startTime} to ${booking.endTime} has been cancelled by the administration. Reason: ${reason}. We apologize for the inconvenience. Please submit another booking if needed.`;
+
+            // Update booking status
+            booking.status = 'Cancelled';
+            booking.adminCancellationReason = reason;
+            localStorage.setItem('bookings', JSON.stringify(bookings));
+
+            // Create notification
+            createNotification(booking.userEmail, message);
+
+            alert('Booking cancelled and user notified.');
+            renderAdminDashboard();
+            renderAllBookingsTable();
+        }
+
         // --- Data Management ---
         const halls = [
             { id: 'S104', capacity: 175, notes: 'Standard Hall' },
@@ -1207,6 +1328,7 @@
                 currentUser = { name: 'Admin', role: 'admin', email: email };
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 showPage('admin-dashboard');
+                showStoredNotifications(email);
             } else alert('Invalid Admin Credentials');
         });
 
@@ -1225,7 +1347,12 @@
             e.preventDefault();
             const email = document.getElementById('lecLoginEmail').value, pass = document.getElementById('lecLoginPassword').value;
             const user = users.find(u => u.email === email && u.password === pass && u.role === 'lecturer');
-            if (user) { currentUser = user; localStorage.setItem('currentUser', JSON.stringify(currentUser)); showPage('booking-page'); } else alert('Invalid Credentials');
+            if (user) { 
+                currentUser = user; 
+                localStorage.setItem('currentUser', JSON.stringify(currentUser)); 
+                showPage('booking-page'); 
+                showStoredNotifications(email);
+            } else alert('Invalid Credentials');
         });
 
         document.getElementById('studentSignupForm').addEventListener('submit', (e) => {
@@ -1243,7 +1370,12 @@
             e.preventDefault();
             const email = document.getElementById('stuLoginEmail').value, pass = document.getElementById('stuLoginPassword').value;
             const user = users.find(u => u.email === email && u.password === pass && u.role === 'student');
-            if (user) { currentUser = user; localStorage.setItem('currentUser', JSON.stringify(currentUser)); showPage('booking-page'); } else alert('Invalid Credentials');
+            if (user) { 
+                currentUser = user; 
+                localStorage.setItem('currentUser', JSON.stringify(currentUser)); 
+                showPage('booking-page'); 
+                showStoredNotifications(email);
+            } else alert('Invalid Credentials');
         });
 
         // --- Unified Booking Logic ---
@@ -1540,6 +1672,7 @@
                             ` : ''}
                             ${b.status === 'Approved' && !msg && (!b.cancellationStatus || b.cancellationStatus === 'Rejected Cancellation') ? `
                                 <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:var(--primary-color);color:var(--primary-color);" onclick="openChangeRequest(${b.id})">Send Change Request</button>
+                                <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:var(--danger);color:var(--danger);" onclick="adminCancelApprovedBooking(${b.id})">Cancel Booking</button>
                             ` : ''}
                             ${(b.cancelRequest || b.cancellationStatus === 'Cancellation Requested') && b.cancellationStatus !== 'Cancelled' ? `
                                 <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:#9c27b0;color:#9c27b0;" onclick="handleCancellationAdmin(${b.id}, 'Approve')">Approve Cancellation</button>
@@ -1829,7 +1962,10 @@
         
         window.onload = () => { 
             updateThemeIcon(savedTheme);
-            if (currentUser) goToHome(); 
+            if (currentUser) {
+                goToHome(); 
+                showStoredNotifications(currentUser.email);
+            }
             else showPage('landing'); 
         };
     </script>
