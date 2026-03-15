@@ -566,61 +566,117 @@
             to { transform: translateX(0); opacity: 1; }
         }
 
-        /* --- Notification & Message History --- */
-        .notification-history-box {
+        /* --- Modern Notification History --- */
+        .message-history-container {
             background: var(--card-bg);
-            border-radius: 12px;
-            padding: 1.5rem;
+            border-radius: 15px;
+            padding: 2rem;
             box-shadow: var(--shadow);
-            margin-top: 1rem;
+            margin-top: 3rem;
             border: 1px solid var(--border-color);
-            max-width: 800px;
-            margin-left: auto;
-            margin-right: auto;
         }
 
-        .notification-list {
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--bg-color);
+        }
+
+        .history-header h3 {
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--primary-color);
+        }
+
+        .message-history-list {
+            max-height: 450px;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 15px;
-            max-height: 500px;
-            overflow-y: auto;
-            padding: 10px;
+            padding-right: 8px;
         }
 
-        .notification-item {
-            padding: 15px;
-            border-radius: 10px;
+        /* Custom Scrollbar */
+        .message-history-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .message-history-list::-webkit-scrollbar-track {
             background: var(--bg-color);
-            border-left: 5px solid var(--primary-color);
-            position: relative;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            animation: slideIn 0.3s ease-out;
+            border-radius: 10px;
+        }
+        .message-history-list::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 10px;
         }
 
-        .notification-item.cancellation { border-left-color: var(--danger); }
-        .notification-item.suggestion { border-left-color: var(--accent-color); }
+        .history-item {
+            display: flex;
+            gap: 15px;
+            padding: 15px;
+            background: var(--bg-color);
+            border-radius: 12px;
+            border-left: 5px solid var(--primary-color);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
 
-        .notification-item .notif-date {
+        .history-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+
+        .history-icon {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: var(--primary-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .history-body {
+            flex: 1;
+        }
+
+        .history-date {
             font-size: 0.75rem;
+            font-weight: 600;
             color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
             margin-bottom: 5px;
             display: block;
         }
 
-        .notification-item .notif-content {
-            font-size: 0.95rem;
-            line-height: 1.4;
+        .history-text {
+            font-size: 0.92rem;
+            color: var(--text-color);
+            line-height: 1.5;
         }
 
-        .notification-item .notif-tag {
-            position: absolute;
-            top: 10px;
-            right: 15px;
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            font-weight: 700;
-            opacity: 0.7;
+        .btn-clear {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            padding: 5px 12px;
+            font-size: 0.8rem;
+            width: auto;
+            border-radius: 20px;
+        }
+
+        .btn-clear:hover {
+            background: var(--danger);
+            color: white;
         }
 
         /* --- Responsive --- */
@@ -1133,9 +1189,12 @@
 
             <!-- Message History Box -->
             <div class="message-history-container">
-                <h3 style="margin-bottom: 1rem; color: var(--primary-color);">
-                    <i class="fas fa-history"></i> Notification History
-                </h3>
+                <div class="history-header">
+                    <h3><i class="fas fa-history"></i> Notification History</h3>
+                    <button class="btn btn-clear" onclick="clearNotificationHistory()">
+                        <i class="fas fa-trash-alt"></i> Clear History
+                    </button>
+                </div>
                 <div id="messageHistoryList" class="message-history-list">
                     <!-- History items will be appended here -->
                     <p class="text-center" style="color: #777; margin-top: 10px;">No message history yet.</p>
@@ -1289,9 +1348,20 @@
 
             const item = document.createElement('div');
             item.className = 'history-item';
+            
+            // Logic to determine icon based on message content
+            let iconClass = 'fa-bell';
+            if (message.toLowerCase().includes('cancelled')) iconClass = 'fa-calendar-times';
+            if (message.toLowerCase().includes('change requested')) iconClass = 'fa-edit';
+
             item.innerHTML = `
-                <span class="history-date">${dateStr}</span>
-                <div>${message}</div>
+                <div class="history-icon">
+                    <i class="fas ${iconClass}"></i>
+                </div>
+                <div class="history-body">
+                    <span class="history-date">${dateStr}</span>
+                    <div class="history-text">${message}</div>
+                </div>
             `;
             // Add to top of history
             list.insertBefore(item, list.firstChild);
@@ -1316,14 +1386,34 @@
                 const date = new Date(n.date);
                 const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 
+                let iconClass = 'fa-bell';
+                if (n.message.toLowerCase().includes('cancelled')) iconClass = 'fa-calendar-times';
+                if (n.message.toLowerCase().includes('change requested')) iconClass = 'fa-edit';
+
                 const item = document.createElement('div');
                 item.className = 'history-item';
                 item.innerHTML = `
-                    <span class="history-date">${dateStr}</span>
-                    <div>${n.message}</div>
+                    <div class="history-icon">
+                        <i class="fas ${iconClass}"></i>
+                    </div>
+                    <div class="history-body">
+                        <span class="history-date">${dateStr}</span>
+                        <div class="history-text">${n.message}</div>
+                    </div>
                 `;
                 list.appendChild(item);
             });
+        }
+
+        function clearNotificationHistory() {
+            if (!currentUser) return;
+            if (confirm('Are you sure you want to clear your entire notification history?')) {
+                let notifications = JSON.parse(localStorage.getItem('userNotifications')) || [];
+                // Remove all notifications for CURRENT user
+                notifications = notifications.filter(n => n.userEmail !== currentUser.email);
+                localStorage.setItem('userNotifications', JSON.stringify(notifications));
+                renderMessageHistory();
+            }
         }
 
         function showStoredNotifications(userEmail) {
