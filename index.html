@@ -239,11 +239,14 @@
             font-size: 0.8rem;
             font-weight: 600;
             color: white;
+            white-space: nowrap;
         }
 
-        .badge-pending { background-color: var(--pending); }
-        .badge-approved { background-color: var(--success); }
-        .badge-declined { background-color: var(--danger); }
+        .badge-pending { background-color: #ff9800; } /* Orange */
+        .badge-approved { background-color: #4caf50; } /* Green */
+        .badge-declined { background-color: #f44336; } /* Red */
+        .badge-cancellation-requested { background-color: #9c27b0; } /* Purple */
+        .badge-cancelled { background-color: #9e9e9e; } /* Gray */
 
         /* --- Hall Display --- */
         .hall-grid {
@@ -409,9 +412,9 @@
                                 <th>Role</th>
                                 <th>Hall</th>
                                 <th>Date</th>
-                                <th>Start Time</th>
-                                <th>End Time</th>
+                                <th>Time</th>
                                 <th>Status</th>
+                                <th>Cancellation Request</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -675,6 +678,8 @@
                             <option value="Pending">Pending</option>
                             <option value="Approved">Approved</option>
                             <option value="Declined">Declined</option>
+                            <option value="Cancellation Requested">Cancellation Requested</option>
+                            <option value="Cancelled">Cancelled</option>
                         </select>
                     </div>
                     <div class="filter-actions">
@@ -714,6 +719,7 @@
                                 <th>Date</th>
                                 <th>Time</th>
                                 <th>Status</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="userBookingsBody">
@@ -941,6 +947,7 @@
             // Update the table with filtered results
             filteredBookings.forEach(b => {
                 const tr = document.createElement('tr');
+                const statusClass = b.status.toLowerCase().replace(/ /g, '-');
                 tr.innerHTML = `
                     <td>${b.userName}</td>
                     <td>${b.userRole.charAt(0).toUpperCase() + b.userRole.slice(1)}</td>
@@ -949,7 +956,7 @@
                     <td>${b.startTime}</td>
                     <td>${b.endTime}</td>
                     <td>${b.purpose}</td>
-                    <td><span class="badge badge-${b.status.toLowerCase()}">${b.status}</span></td>
+                    <td><span class="badge badge-${statusClass}">${b.status}</span></td>
                 `;
                 body.appendChild(tr);
             });
@@ -1012,7 +1019,7 @@
             const hasClash = bookings.some(b => {
                 return b.hall === hall && 
                        b.date === date && 
-                       b.status !== 'Declined' &&
+                       !['Declined', 'Cancelled'].includes(b.status) &&
                        startTime < b.endTime && 
                        endTime > b.startTime;
             });
@@ -1031,7 +1038,8 @@
                 startTime: startTime,
                 endTime: endTime,
                 purpose: document.getElementById('bookPurpose').value,
-                status: 'Pending'
+                status: 'Pending',
+                cancelRequest: false
             };
 
             bookings.push(booking);
@@ -1048,20 +1056,44 @@
             
             const myBookings = bookings.filter(b => b.userEmail === currentUser.email);
             if (myBookings.length === 0) {
-                body.innerHTML = '<tr><td colspan="4" class="text-center">No bookings found.</td></tr>';
+                body.innerHTML = '<tr><td colspan="5" class="text-center">No bookings found.</td></tr>';
                 return;
             }
 
             myBookings.reverse().forEach(b => {
                 const tr = document.createElement('tr');
+                const statusClass = b.status.toLowerCase().replace(/ /g, '-');
                 tr.innerHTML = `
                     <td>${b.hall}</td>
                     <td>${b.date}</td>
                     <td>${b.startTime} - ${b.endTime}</td>
-                    <td><span class="badge badge-${b.status.toLowerCase()}">${b.status}</span></td>
+                    <td><span class="badge badge-${statusClass}">${b.status}</span></td>
+                    <td>
+                        ${(b.status === 'Approved' && !b.cancelRequest) ? `
+                            <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem;" onclick="requestCancellation(${b.id})">Request Cancellation</button>
+                        ` : '-'}
+                    </td>
                 `;
                 body.appendChild(tr);
             });
+        }
+
+        // --- Cancellation Logic ---
+        /**
+         * Logic to handle cancellation requests from students or lecturers.
+         */
+        function requestCancellation(id) {
+            if (confirm('Are you sure you want to request a cancellation for this booking?')) {
+                const index = bookings.findIndex(b => b.id === id);
+                if (index !== -1) {
+                    bookings[index].cancelRequest = true;
+                    bookings[index].status = 'Cancellation Requested';
+                    localStorage.setItem('bookings', JSON.stringify(bookings));
+                    alert('Cancellation request sent to Admin.');
+                    renderUserBookings();
+                    renderAllBookingsTable();
+                }
+            }
         }
 
         // --- Admin Management ---
@@ -1074,20 +1106,28 @@
             } else {
                 bookings.slice().reverse().forEach(b => {
                     const tr = document.createElement('tr');
+                    const statusClass = b.status.toLowerCase().replace(/ /g, '-');
                     tr.innerHTML = `
                         <td>${b.id.toString().slice(-4)}</td>
                         <td>${b.userName}</td>
                         <td>${b.userRole}</td>
                         <td>${b.hall}</td>
                         <td>${b.date}</td>
-                        <td>${b.startTime}</td>
-                        <td>${b.endTime}</td>
-                        <td><span class="badge badge-${b.status.toLowerCase()}">${b.status}</span></td>
+                        <td>${b.startTime} - ${b.endTime}</td>
+                        <td><span class="badge badge-${statusClass}">${b.status}</span></td>
+                        <td>${b.cancelRequest ? '<span class="badge badge-cancellation-requested">Cancellation Requested</span>' : '-'}</td>
                         <td>
-                            ${b.status === 'Pending' ? `
-                                <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem; border-color: green; color: green;" onclick="updateBookingStatus(${b.id}, 'Approved')">Approve</button>
-                                <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem; border-color: red; color: red;" onclick="updateBookingStatus(${b.id}, 'Declined')">Reject</button>
-                            ` : '-'}
+                            <div class="flex" style="flex-direction: column; gap: 5px;">
+                                ${b.status === 'Pending' ? `
+                                    <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem; border-color: green; color: green;" onclick="updateBookingStatus(${b.id}, 'Approved')">Approve</button>
+                                    <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem; border-color: red; color: red;" onclick="updateBookingStatus(${b.id}, 'Declined')">Reject</button>
+                                ` : ''}
+                                ${b.cancelRequest ? `
+                                    <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem; border-color: #9c27b0; color: #9c27b0;" onclick="handleCancellationAdmin(${b.id}, 'Approve')">Approve Cancellation</button>
+                                    <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem; border-color: #333; color: #333;" onclick="handleCancellationAdmin(${b.id}, 'Reject')">Reject Cancellation</button>
+                                ` : ''}
+                                ${(!b.cancelRequest && b.status !== 'Pending') ? '-' : ''}
+                            </div>
                         </td>
                     `;
                     bookingBody.appendChild(tr);
@@ -1112,12 +1152,32 @@
             }
         }
 
+        /**
+         * Logic for Admin to approve or reject cancellation requests.
+         */
+        function handleCancellationAdmin(id, action) {
+            const index = bookings.findIndex(b => b.id === id);
+            if (index !== -1) {
+                if (action === 'Approve') {
+                    bookings[index].status = 'Cancelled';
+                    bookings[index].cancelRequest = false;
+                } else {
+                    bookings[index].status = 'Approved';
+                    bookings[index].cancelRequest = false;
+                }
+                localStorage.setItem('bookings', JSON.stringify(bookings));
+                renderAdminDashboard();
+                renderAllBookingsTable();
+            }
+        }
+
         function updateBookingStatus(id, newStatus) {
             const index = bookings.findIndex(b => b.id === id);
             if (index !== -1) {
                 bookings[index].status = newStatus;
                 localStorage.setItem('bookings', JSON.stringify(bookings));
                 renderAdminDashboard();
+                renderAllBookingsTable();
             }
         }
 
