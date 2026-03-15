@@ -534,6 +534,151 @@
         .flex { display: flex; gap: 10px; }
         .hidden { display: none !important; }
 
+        /* --- Notification Toast --- */
+        .notification-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--primary-color);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 3000;
+            animation: slideIn 0.3s ease-out;
+            max-width: 400px;
+            border-left: 5px solid var(--accent-color);
+        }
+
+        .notification-toast.fade-out {
+            opacity: 0;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .notification-content {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* --- Modern Notification History --- */
+        .message-history-container {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: var(--shadow);
+            margin-top: 3rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--bg-color);
+        }
+
+        .history-header h3 {
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--primary-color);
+        }
+
+        .message-history-list {
+            max-height: 450px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding-right: 8px;
+        }
+
+        /* Custom Scrollbar */
+        .message-history-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .message-history-list::-webkit-scrollbar-track {
+            background: var(--bg-color);
+            border-radius: 10px;
+        }
+        .message-history-list::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 10px;
+        }
+
+        .history-item {
+            display: flex;
+            gap: 15px;
+            padding: 15px;
+            background: var(--bg-color);
+            border-radius: 12px;
+            border-left: 5px solid var(--primary-color);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .history-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+
+        .history-icon {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: var(--primary-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .history-body {
+            flex: 1;
+        }
+
+        .history-date {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .history-text {
+            font-size: 0.92rem;
+            color: var(--text-color);
+            line-height: 1.5;
+        }
+
+        .btn-clear {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            padding: 5px 12px;
+            font-size: 0.8rem;
+            width: auto;
+            border-radius: 20px;
+        }
+
+        .btn-clear:hover {
+            background: var(--danger);
+            color: white;
+        }
+
         /* --- Responsive --- */
         @media (max-width: 768px) {
             header { flex-direction: column; text-align: center; gap: 15px; }
@@ -1041,6 +1186,20 @@
                     </table>
                 </div>
             </div>
+
+            <!-- Message History Box -->
+            <div class="message-history-container">
+                <div class="history-header">
+                    <h3><i class="fas fa-history"></i> Notification History</h3>
+                    <button class="btn btn-clear" onclick="clearNotificationHistory()">
+                        <i class="fas fa-trash-alt"></i> Clear History
+                    </button>
+                </div>
+                <div id="messageHistoryList" class="message-history-list">
+                    <!-- History items will be appended here -->
+                    <p class="text-center" style="color: #777; margin-top: 10px;">No message history yet.</p>
+                </div>
+            </div>
         </section>
 
         <!-- 6. Messages Page (New) -->
@@ -1130,6 +1289,184 @@
 
     <!-- JavaScript -->
     <script>
+        // --- Notification System ---
+        function createNotification(userEmail, message) {
+            const notifications = JSON.parse(localStorage.getItem('userNotifications')) || [];
+            notifications.push({
+                userEmail: userEmail,
+                message: message,
+                date: new Date().toISOString(),
+                read: false
+            });
+            localStorage.setItem('userNotifications', JSON.stringify(notifications));
+            
+            // If the user is currently logged in, show it immediately
+            if (currentUser && currentUser.email === userEmail) {
+                showNotificationPopup(message);
+                // Mark as read if shown immediately
+                const lastIdx = notifications.length - 1;
+                notifications[lastIdx].read = true;
+                localStorage.setItem('userNotifications', JSON.stringify(notifications));
+            }
+        }
+
+        function showNotificationPopup(message) {
+            // 1. Show Toast
+            const toast = document.createElement('div');
+            toast.className = 'notification-toast';
+            toast.innerHTML = `
+                <div class="notification-content">
+                    <i class="fas fa-bell" style="font-size: 1.5rem; color: var(--accent-color);"></i>
+                    <div>
+                        <strong style="display:block; margin-bottom: 2px;">Notification</strong>
+                        <span style="font-size: 0.9rem;">${message}</span>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('fade-out');
+                setTimeout(() => toast.remove(), 500);
+            }, 6000);
+
+            // 2. Append to Persistent History UI
+            appendMessageToHistory(message, new Date().toISOString());
+        }
+
+        function appendMessageToHistory(message, dateIso) {
+            const list = document.getElementById('messageHistoryList');
+            if (!list) return;
+
+            // Remove "No history" placeholder if it exists
+            if (list.querySelector('p')) {
+                list.innerHTML = '';
+            }
+
+            const date = new Date(dateIso);
+            const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+            const item = document.createElement('div');
+            item.className = 'history-item';
+            
+            // Logic to determine icon based on message content
+            let iconClass = 'fa-bell';
+            if (message.toLowerCase().includes('cancelled')) iconClass = 'fa-calendar-times';
+            if (message.toLowerCase().includes('change requested')) iconClass = 'fa-edit';
+
+            item.innerHTML = `
+                <div class="history-icon">
+                    <i class="fas ${iconClass}"></i>
+                </div>
+                <div class="history-body">
+                    <span class="history-date">${dateStr}</span>
+                    <div class="history-text">${message}</div>
+                </div>
+            `;
+            // Add to top of history
+            list.insertBefore(item, list.firstChild);
+        }
+
+        function renderMessageHistory() {
+            if (!currentUser) return;
+            const list = document.getElementById('messageHistoryList');
+            if (!list) return;
+
+            const notifications = JSON.parse(localStorage.getItem('userNotifications')) || [];
+            const userHistory = notifications.filter(n => n.userEmail === currentUser.email);
+
+            if (userHistory.length === 0) {
+                list.innerHTML = '<p class="text-center" style="color: #777; margin-top: 10px;">No message history yet.</p>';
+                return;
+            }
+
+            list.innerHTML = '';
+            // Show latest first
+            userHistory.reverse().forEach(n => {
+                const date = new Date(n.date);
+                const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                let iconClass = 'fa-bell';
+                if (n.message.toLowerCase().includes('cancelled')) iconClass = 'fa-calendar-times';
+                if (n.message.toLowerCase().includes('change requested')) iconClass = 'fa-edit';
+
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.innerHTML = `
+                    <div class="history-icon">
+                        <i class="fas ${iconClass}"></i>
+                    </div>
+                    <div class="history-body">
+                        <span class="history-date">${dateStr}</span>
+                        <div class="history-text">${n.message}</div>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function clearNotificationHistory() {
+            if (!currentUser) return;
+            if (confirm('Are you sure you want to clear your entire notification history?')) {
+                let notifications = JSON.parse(localStorage.getItem('userNotifications')) || [];
+                // Remove all notifications for CURRENT user
+                notifications = notifications.filter(n => n.userEmail !== currentUser.email);
+                localStorage.setItem('userNotifications', JSON.stringify(notifications));
+                renderMessageHistory();
+            }
+        }
+
+        function showStoredNotifications(userEmail) {
+            const notifications = JSON.parse(localStorage.getItem('userNotifications')) || [];
+            let updated = false;
+            
+            // Filter unread notifications for this user
+            const unread = notifications.filter(n => n.userEmail === userEmail && !n.read);
+            
+            unread.forEach((n, index) => {
+                setTimeout(() => {
+                    showNotificationPopup(n.message);
+                }, index * 1000); // Stagger popups
+                n.read = true;
+                updated = true;
+            });
+            
+            if (updated) {
+                localStorage.setItem('userNotifications', JSON.stringify(notifications));
+            }
+
+            // Also refresh the history box view
+            renderMessageHistory();
+        }
+
+        function adminCancelApprovedBooking(id) {
+            const booking = bookings.find(b => b.id === id);
+            if (!booking) return;
+
+            const reason = prompt("Enter cancellation reason:");
+            if (reason === null) return; // Admin clicked cancel
+
+            if (reason.trim() === "") {
+                alert("Cancellation reason is required.");
+                return;
+            }
+
+            const resourceName = booking.bookingType === 'Hall' ? `Hall ${booking.hallNumber}` : `${booking.labName} - ${booking.computerNumber}`;
+            const message = `Your approved booking for ${resourceName} on ${booking.date} from ${booking.startTime} to ${booking.endTime} has been cancelled by the administration. Reason: ${reason}. We apologize for the inconvenience. Please submit another booking if needed.`;
+
+            // Update booking status
+            booking.status = 'Cancelled';
+            booking.adminCancellationReason = reason;
+            localStorage.setItem('bookings', JSON.stringify(bookings));
+
+            // Create notification
+            createNotification(booking.userEmail, message);
+
+            alert('Booking cancelled and user notified.');
+            renderAdminDashboard();
+            renderAllBookingsTable();
+        }
+
         // --- Data Management ---
         const halls = [
             { id: 'S104', capacity: 175, notes: 'Standard Hall' },
@@ -1207,6 +1544,7 @@
                 currentUser = { name: 'Admin', role: 'admin', email: email };
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 showPage('admin-dashboard');
+                showStoredNotifications(email);
             } else alert('Invalid Admin Credentials');
         });
 
@@ -1225,7 +1563,12 @@
             e.preventDefault();
             const email = document.getElementById('lecLoginEmail').value, pass = document.getElementById('lecLoginPassword').value;
             const user = users.find(u => u.email === email && u.password === pass && u.role === 'lecturer');
-            if (user) { currentUser = user; localStorage.setItem('currentUser', JSON.stringify(currentUser)); showPage('booking-page'); } else alert('Invalid Credentials');
+            if (user) { 
+                currentUser = user; 
+                localStorage.setItem('currentUser', JSON.stringify(currentUser)); 
+                showPage('booking-page'); 
+                showStoredNotifications(email);
+            } else alert('Invalid Credentials');
         });
 
         document.getElementById('studentSignupForm').addEventListener('submit', (e) => {
@@ -1243,7 +1586,12 @@
             e.preventDefault();
             const email = document.getElementById('stuLoginEmail').value, pass = document.getElementById('stuLoginPassword').value;
             const user = users.find(u => u.email === email && u.password === pass && u.role === 'student');
-            if (user) { currentUser = user; localStorage.setItem('currentUser', JSON.stringify(currentUser)); showPage('booking-page'); } else alert('Invalid Credentials');
+            if (user) { 
+                currentUser = user; 
+                localStorage.setItem('currentUser', JSON.stringify(currentUser)); 
+                showPage('booking-page'); 
+                showStoredNotifications(email);
+            } else alert('Invalid Credentials');
         });
 
         // --- Unified Booking Logic ---
@@ -1540,6 +1888,7 @@
                             ` : ''}
                             ${b.status === 'Approved' && !msg && (!b.cancellationStatus || b.cancellationStatus === 'Rejected Cancellation') ? `
                                 <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:var(--primary-color);color:var(--primary-color);" onclick="openChangeRequest(${b.id})">Send Change Request</button>
+                                <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:var(--danger);color:var(--danger);" onclick="adminCancelApprovedBooking(${b.id})">Cancel Booking</button>
                             ` : ''}
                             ${(b.cancelRequest || b.cancellationStatus === 'Cancellation Requested') && b.cancellationStatus !== 'Cancelled' ? `
                                 <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:#9c27b0;color:#9c27b0;" onclick="handleCancellationAdmin(${b.id}, 'Approve')">Approve Cancellation</button>
@@ -1829,7 +2178,10 @@
         
         window.onload = () => { 
             updateThemeIcon(savedTheme);
-            if (currentUser) goToHome(); 
+            if (currentUser) {
+                goToHome(); 
+                showStoredNotifications(currentUser.email);
+            }
             else showPage('landing'); 
         };
     </script>
