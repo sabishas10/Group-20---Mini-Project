@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UCSC Lecture Hall Booking System</title>
+    <title>UCSC Lecture Halls & Computer Labs Booking System</title>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Font Awesome Icons -->
@@ -50,6 +50,27 @@
             color: var(--text-color);
             line-height: 1.6;
             overflow-x: hidden;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('8F1A0578-1024x683.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            opacity: 0.5;
+            z-index: -1;
+        }
+        
+        [data-theme="dark"] body::before {
+            opacity: 0.2; /* Even lower for dark mode to maintain contrast */
         }
 
         /* --- Header & Navigation --- */
@@ -125,6 +146,13 @@
             padding: 5px 15px;
             border-radius: 5px;
             color: white !important;
+        }
+
+        /* --- Landing Page Section --- */
+        #landing {
+            padding: 4rem 20px;
+            border-radius: 15px;
+            margin-top: 1rem;
         }
 
         /* --- PC Grid (Cinema Style) --- */
@@ -535,11 +563,11 @@
 
         <!-- 1. Landing Page -->
         <section id="landing" class="active">
-            <div class="text-center">
-                <h1 style="font-size: 2.5rem; color: var(--primary-color);">UCSC Lecture Hall Booking System</h1>
+            <div class="text-center" style="position: relative; z-index: 1;">
+                <h1 style="font-size: 2.5rem; color: var(--primary-color);">UCSC Lecture Halls & Computer Labs Booking System</h1>
                 <p>Welcome! Please select your role to continue.</p>
             </div>
-            <div class="card-container">
+            <div class="card-container" style="position: relative; z-index: 1;">
                 <div class="card" onclick="showPage('admin-login')">
                     <i class="fas fa-user-shield"></i>
                     <h3>Continue as Admin</h3>
@@ -608,7 +636,7 @@
             </div>
 
             <div class="mt-2">
-                <h3>Declined Bookings</h3>
+                <h3>Rejected Bookings</h3>
                 <div class="table-container">
                     <table>
                         <thead>
@@ -1104,14 +1132,14 @@
     <script>
         // --- Data Management ---
         const halls = [
-            { id: 'S104', capacity: 180, notes: 'Standard Hall' },
+            { id: 'S104', capacity: 175, notes: 'Standard Hall' },
             { id: 'S102', capacity: 20, notes: 'Discussion Room' },
-            { id: 'S202', capacity: 50, notes: 'Tutorial Hall' },
-            { id: 'S203', capacity: 100, notes: 'Lecture Room' },
-            { id: 'W001', capacity: 120, notes: 'West Wing' },
-            { id: 'W002', capacity: 120, notes: 'West Wing' },
-            { id: 'E205', capacity: 120, notes: 'Mini Auditorium' },
-            { id: 'E401', capacity: 200, notes: 'Main Hall' }
+            { id: 'S202', capacity: 100, notes: 'Tutorial Hall' },
+            { id: 'S203', capacity: 140, notes: 'Lecture Room' },
+            { id: 'W001', capacity: 100, notes: 'West Wing' },
+            { id: 'W002', capacity: 160, notes: 'West Wing' },
+            { id: 'E205', capacity: 200, notes: 'Mini Auditorium' },
+            { id: 'E401', capacity: 275, notes: 'Main Hall' }
         ];
 
         // New: Lab Data
@@ -1275,13 +1303,15 @@
             const endTime = document.getElementById('bookEndTime').value;
             const selectedPC = document.getElementById('bookPCNumber').value;
 
+            const excludedStatuses = ['Declined', 'Cancelled', 'Rejected'];
+
             computers.forEach(pc => {
                 const isBooked = bookings.some(b => 
                     b.bookingType === 'Computer' && 
                     b.labName === labName && 
                     b.computerNumber === pc && 
                     b.date === date && 
-                    !['Declined', 'Cancelled'].includes(b.status) && 
+                    !excludedStatuses.includes(b.status) && 
                     startTime < b.endTime && 
                     endTime > b.startTime
                 );
@@ -1345,14 +1375,15 @@
 
             let conflict = false;
             let hallNum = '', labName = '', pcNum = '';
+            const excludedStatuses = ['Declined', 'Cancelled', 'Rejected'];
 
             if (type === 'Hall') {
                 hallNum = document.getElementById('bookHallNumber').value;
-                conflict = bookings.some(b => b.bookingType === 'Hall' && b.hallNumber === hallNum && b.date === date && !['Declined', 'Cancelled'].includes(b.status) && startTime < b.endTime && endTime > b.startTime);
+                conflict = bookings.some(b => b.bookingType === 'Hall' && b.hallNumber === hallNum && b.date === date && !excludedStatuses.includes(b.status) && startTime < b.endTime && endTime > b.startTime);
             } else {
                 labName = document.getElementById('bookLabName').value;
                 pcNum = document.getElementById('bookPCNumber').value;
-                conflict = bookings.some(b => b.bookingType === 'Computer' && b.labName === labName && b.computerNumber === pcNum && b.date === date && !['Declined', 'Cancelled'].includes(b.status) && startTime < b.endTime && endTime > b.startTime);
+                conflict = bookings.some(b => b.bookingType === 'Computer' && b.labName === labName && b.computerNumber === pcNum && b.date === date && !excludedStatuses.includes(b.status) && startTime < b.endTime && endTime > b.startTime);
             }
 
             if (conflict) return alert(type === 'Hall' ? 'This hall is already booked.' : 'This computer is already booked for the selected time. Please choose another computer or time slot.');
@@ -1520,13 +1551,13 @@
                 bBody.appendChild(tr);
             });
 
-            // Populate Declined Bookings
+            // Populate Rejected Bookings
             const dBody = document.getElementById('adminDeclinedBody');
             if (dBody) {
                 dBody.innerHTML = '';
                 const declined = bookings.filter(b => b.status === 'Rejected' || b.status === 'Declined');
                 if (declined.length === 0) {
-                    dBody.innerHTML = '<tr><td colspan="8" class="text-center">No declined bookings.</td></tr>';
+                    dBody.innerHTML = '<tr><td colspan="8" class="text-center">No rejected bookings.</td></tr>';
                 } else {
                     declined.reverse().forEach(b => {
                         const tr = document.createElement('tr');
