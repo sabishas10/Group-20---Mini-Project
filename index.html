@@ -410,9 +410,10 @@
                                 <th>ID</th>
                                 <th>Name</th>
                                 <th>Role</th>
-                                <th>Hall</th>
+                                <th>Hall/Lab-PC</th>
                                 <th>Date</th>
                                 <th>Time</th>
+                                <th>Purpose</th>
                                 <th>Status</th>
                                 <th>Cancellation Request</th>
                                 <th>Actions</th>
@@ -460,7 +461,7 @@
                         <h3>Sign Up</h3>
                     </div>
                 </div>
-                <button class="btn btn-outline mt-2" onclick="goToHome()">Go Back</button>
+                <button class="btn btn-outline mt-2" onclick="showPage('landing')">Go Back</button>
             </div>
         </section>
 
@@ -529,7 +530,7 @@
                         <h3>Sign Up</h3>
                     </div>
                 </div>
-                <button class="btn btn-outline mt-2" onclick="goToHome()">Go Back</button>
+                <button class="btn btn-outline mt-2" onclick="showPage('landing')">Go Back</button>
             </div>
         </section>
 
@@ -590,19 +591,45 @@
         <!-- 5. Booking Page (Shared) -->
         <section id="booking-page">
             <div class="text-center">
-                <h2>Available Lecture Halls</h2>
-                <p>Select a hall to make a booking request.</p>
+                <h2>Resource Booking Portal</h2>
+                <p>Select a resource type to view availability.</p>
+                
+                <!-- New: Booking Type Selector -->
+                <div class="form-group" style="max-width: 300px; margin: 1rem auto;">
+                    <label for="globalBookingType">Booking Type:</label>
+                    <select id="globalBookingType" onchange="toggleBookingType()">
+                        <option value="Hall">Lecture Hall</option>
+                        <option value="Computer">Computer Lab</option>
+                    </select>
+                </div>
             </div>
-            <div class="hall-grid" id="hallsContainer">
-                <!-- JS will populate -->
+
+            <!-- Hall View -->
+            <div id="hallView">
+                <div class="text-center">
+                    <h3>Available Lecture Halls</h3>
+                </div>
+                <div class="hall-grid" id="hallsContainer">
+                    <!-- JS will populate -->
+                </div>
+            </div>
+
+            <!-- Lab View (New) -->
+            <div id="labView" class="hidden">
+                <div class="text-center">
+                    <h3>Available Computer Labs</h3>
+                </div>
+                <div class="hall-grid" id="labsContainer">
+                    <!-- JS will populate -->
+                </div>
             </div>
 
             <!-- Booking Modal/Form (Hidden initially) -->
             <div id="bookingFormWrapper" class="hidden mt-2">
                 <div class="form-container">
-                    <h2 id="bookingHallTitle">Book Hall</h2>
+                    <h2 id="bookingHallTitle">Book Resource</h2>
                     <form id="hallBookingForm">
-                        <input type="hidden" id="bookHallNumber">
+                        <input type="hidden" id="bookType">
                         <div class="form-group">
                             <label>Name</label>
                             <input type="text" id="bookUserName" readonly>
@@ -611,6 +638,30 @@
                             <label>Role</label>
                             <input type="text" id="bookUserRole" readonly>
                         </div>
+
+                        <!-- Dynamic Fields -->
+                        <div id="hallFields">
+                            <div class="form-group">
+                                <label>Hall Number</label>
+                                <input type="text" id="bookHallNumber" readonly>
+                            </div>
+                        </div>
+
+                        <div id="labFields" class="hidden">
+                            <div class="form-group">
+                                <label>Lab Name</label>
+                                <select id="bookLabName" onchange="updatePCList()">
+                                    <!-- Populated by JS -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Select Computer</label>
+                                <select id="bookPCNumber">
+                                    <!-- Populated by JS -->
+                                </select>
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <label>Date</label>
                             <input type="date" id="bookDate" required>
@@ -635,9 +686,9 @@
                 </div>
             </div>
 
-            <!-- Existing Lecture Hall Bookings Section -->
+            <!-- Existing Bookings Section -->
             <div id="existingBookingsSection" class="mt-2">
-                <h3 class="text-center">Existing Lecture Hall Bookings</h3>
+                <h3 class="text-center">Existing Resource Bookings</h3>
                 
                 <!-- Filter Panel -->
                 <div class="filter-panel">
@@ -646,17 +697,10 @@
                         <input type="date" id="filterDate">
                     </div>
                     <div class="filter-group">
-                        <label>Lecture Hall Filter</label>
-                        <select id="filterHall">
-                            <option value="All">All Halls</option>
-                            <option value="S104">S104</option>
-                            <option value="S102">S102</option>
-                            <option value="S202">S202</option>
-                            <option value="S203">S203</option>
-                            <option value="W001">W001</option>
-                            <option value="W002">W002</option>
-                            <option value="E205">E205 (Mini Auditorium)</option>
-                            <option value="E401">E401</option>
+                        <label>Resource Filter</label>
+                        <select id="filterResource">
+                            <option value="All">All Resources</option>
+                            <!-- JS will populate options -->
                         </select>
                     </div>
                     <div class="filter-group">
@@ -692,12 +736,12 @@
                     <table>
                         <thead>
                             <tr>
+                                <th>Type</th>
+                                <th>Resource</th>
                                 <th>Name</th>
                                 <th>Role</th>
-                                <th>Hall Number</th>
                                 <th>Date</th>
-                                <th>Start Time</th>
-                                <th>End Time</th>
+                                <th>Time</th>
                                 <th>Purpose</th>
                                 <th>Status</th>
                             </tr>
@@ -715,7 +759,8 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>Hall</th>
+                                <th>Type</th>
+                                <th>Resource</th>
                                 <th>Date</th>
                                 <th>Time</th>
                                 <th>Status</th>
@@ -746,23 +791,23 @@
             { id: 'E401', capacity: 200, notes: 'Main Hall' }
         ];
 
+        // New: Lab Data
+        const labs = ['Lab A', 'Lab B', 'Lab C', 'Lab D', 'Lab E'];
+        const computers = Array.from({ length: 10 }, (_, i) => `PC-${(i + 1).toString().padStart(2, '0')}`);
+
         let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
         let users = JSON.parse(localStorage.getItem('users')) || [];
         let bookings = JSON.parse(localStorage.getItem('bookings')) || [];
 
         // --- Navigation ---
         function showPage(pageId) {
-            // Hide all sections
             document.querySelectorAll('section').forEach(sec => sec.style.display = 'none');
-            // Show target section
             const target = document.getElementById(pageId);
             if (target) {
                 target.style.display = 'block';
                 window.scrollTo(0, 0);
             }
             updateNav();
-            
-            // Context-specific loading
             if (pageId === 'admin-dashboard') renderAdminDashboard();
             if (pageId === 'booking-page') renderBookingPage();
         }
@@ -781,11 +826,7 @@
             navLinks.innerHTML = '';
 
             if (currentUser) {
-                if (currentUser.role === 'admin') {
-                    navLinks.innerHTML += `<li><a onclick="showPage('landing')">Home</a></li>`;
-                } else {
-                    navLinks.innerHTML += `<li><a onclick="showPage('landing')">Home</a></li>`;
-                }
+                navLinks.innerHTML += `<li><a onclick="showPage('landing')">Home</a></li>`;
                 navLinks.innerHTML += `<li><a class="btn-logout" onclick="logout()">Logout</a></li>`;
             } else {
                 navLinks.innerHTML += `<li><a onclick="showPage('landing')">Home</a></li>`;
@@ -799,202 +840,132 @@
             showPage('landing');
         }
 
-        // --- Authentication ---
-        // Admin Login
+        // --- Authentication (Keep existing) ---
         document.getElementById('adminLoginForm').addEventListener('submit', (e) => {
             e.preventDefault();
             const email = document.getElementById('adminEmail').value;
             const password = document.getElementById('adminPassword').value;
-
             if (email === 'admin@ucsc.lk' && password === 'admin123') {
                 currentUser = { name: 'Admin', role: 'admin', email: email };
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 showPage('admin-dashboard');
-            } else {
-                alert('Invalid Admin Credentials');
-            }
+            } else alert('Invalid Admin Credentials');
         });
 
-        // Lecturer Signup
         document.getElementById('lecturerSignupForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            const name = document.getElementById('lecName').value;
-            const id = document.getElementById('lecID').value;
-            const email = document.getElementById('lecEmail').value;
-            const pass = document.getElementById('lecPassword').value;
-            const confirm = document.getElementById('lecConfirmPassword').value;
-
+            const name = document.getElementById('lecName').value, id = document.getElementById('lecID').value, email = document.getElementById('lecEmail').value, pass = document.getElementById('lecPassword').value, confirm = document.getElementById('lecConfirmPassword').value;
             if (pass !== confirm) return alert('Passwords do not match');
             if (users.find(u => u.email === email)) return alert('Email already registered');
-
-            const newUser = { name, id, email, password: pass, role: 'lecturer' };
-            users.push(newUser);
+            users.push({ name, id, email, password: pass, role: 'lecturer' });
             localStorage.setItem('users', JSON.stringify(users));
             alert('Signup Successful! Please Login.');
             showPage('lecturer-login');
         });
 
-        // Lecturer Login
         document.getElementById('lecturerLoginForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            const email = document.getElementById('lecLoginEmail').value;
-            const pass = document.getElementById('lecLoginPassword').value;
-
+            const email = document.getElementById('lecLoginEmail').value, pass = document.getElementById('lecLoginPassword').value;
             const user = users.find(u => u.email === email && u.password === pass && u.role === 'lecturer');
-            if (user) {
-                currentUser = user;
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                showPage('booking-page');
-            } else {
-                alert('Invalid Credentials');
-            }
+            if (user) { currentUser = user; localStorage.setItem('currentUser', JSON.stringify(currentUser)); showPage('booking-page'); } else alert('Invalid Credentials');
         });
 
-        // Student Signup
         document.getElementById('studentSignupForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            const name = document.getElementById('stuName').value;
-            const id = document.getElementById('stuID').value;
-            const batch = document.getElementById('stuBatch').value;
-            const email = document.getElementById('stuEmail').value;
-            const pass = document.getElementById('stuPassword').value;
-            const confirm = document.getElementById('stuConfirmPassword').value;
-
+            const name = document.getElementById('stuName').value, id = document.getElementById('stuID').value, batch = document.getElementById('stuBatch').value, email = document.getElementById('stuEmail').value, pass = document.getElementById('stuPassword').value, confirm = document.getElementById('stuConfirmPassword').value;
             if (pass !== confirm) return alert('Passwords do not match');
             if (users.find(u => u.email === email)) return alert('Email already registered');
-
-            const newUser = { name, id, batch, email, password: pass, role: 'student' };
-            users.push(newUser);
+            users.push({ name, id, batch, email, password: pass, role: 'student' });
             localStorage.setItem('users', JSON.stringify(users));
             alert('Signup Successful! Please Login.');
             showPage('student-login');
         });
 
-        // Student Login
         document.getElementById('studentLoginForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            const email = document.getElementById('stuLoginEmail').value;
-            const pass = document.getElementById('stuLoginPassword').value;
-
+            const email = document.getElementById('stuLoginEmail').value, pass = document.getElementById('stuLoginPassword').value;
             const user = users.find(u => u.email === email && u.password === pass && u.role === 'student');
-            if (user) {
-                currentUser = user;
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                showPage('booking-page');
-            } else {
-                alert('Invalid Credentials');
-            }
+            if (user) { currentUser = user; localStorage.setItem('currentUser', JSON.stringify(currentUser)); showPage('booking-page'); } else alert('Invalid Credentials');
         });
 
-        // --- Hall Booking Logic ---
+        // --- Unified Booking Logic ---
+
+        function toggleBookingType() {
+            const type = document.getElementById('globalBookingType').value;
+            if (type === 'Hall') {
+                document.getElementById('hallView').classList.remove('hidden');
+                document.getElementById('labView').classList.add('hidden');
+            } else {
+                document.getElementById('hallView').classList.add('hidden');
+                document.getElementById('labView').classList.remove('hidden');
+            }
+            renderBookingPage();
+        }
+
         function renderBookingPage() {
-            const container = document.getElementById('hallsContainer');
-            container.innerHTML = '';
-            
+            const hContainer = document.getElementById('hallsContainer');
+            hContainer.innerHTML = '';
             halls.forEach(hall => {
                 const div = document.createElement('div');
                 div.className = 'hall-card';
-                div.innerHTML = `
-                    <h4>Hall ${hall.id}</h4>
-                    <p><i class="fas fa-users"></i> Capacity: ${hall.capacity}</p>
-                    <p><i class="fas fa-info-circle"></i> ${hall.notes}</p>
-                    <button class="btn btn-outline" onclick="openBookingForm('${hall.id}')">Book Now</button>
-                `;
-                container.appendChild(div);
+                div.innerHTML = `<h4>Hall ${hall.id}</h4><p><i class="fas fa-users"></i> Capacity: ${hall.capacity}</p><p><i class="fas fa-info-circle"></i> ${hall.notes}</p><button class="btn btn-outline" onclick="openBookingForm('Hall', '${hall.id}')">Book Now</button>`;
+                hContainer.appendChild(div);
             });
 
-            // Initialize Table
+            const lContainer = document.getElementById('labsContainer');
+            lContainer.innerHTML = '';
+            labs.forEach(lab => {
+                const div = document.createElement('div');
+                div.className = 'hall-card';
+                div.innerHTML = `<h4>${lab}</h4><p><i class="fas fa-desktop"></i> 10 Workstations</p><p><i class="fas fa-info-circle"></i> Computer Lab</p><button class="btn btn-outline" onclick="openBookingForm('Computer', '${lab}')">Book Lab PC</button>`;
+                lContainer.appendChild(div);
+            });
+
+            initResourceFilter();
             renderAllBookingsTable();
             renderUserBookings();
         }
 
-        // --- Filtering Logic ---
-        /**
-         * Retrieves all bookings from localStorage (via the bookings array)
-         * and applies selected filter conditions. Updates the table with results.
-         */
-        function renderAllBookingsTable() {
-            const body = document.getElementById('existingBookingsBody');
-            if (!body) return;
-            body.innerHTML = '';
-            
-            // Get current filter values from the UI
-            const filterDate = document.getElementById('filterDate').value;
-            const filterHall = document.getElementById('filterHall').value;
-            const filterRole = document.getElementById('filterRole').value;
-            const filterName = document.getElementById('filterName').value.toLowerCase();
-            const filterStatus = document.getElementById('filterStatus').value;
-
-            // Apply selected filter conditions using .filter()
-            let filteredBookings = bookings.filter(b => {
-                const matchesDate = filterDate === '' || b.date === filterDate;
-                const matchesHall = filterHall === 'All' || b.hall === filterHall;
-                const matchesRole = filterRole === 'All' || b.userRole.toLowerCase() === filterRole.toLowerCase();
-                const matchesName = filterName === '' || b.userName.toLowerCase().includes(filterName);
-                const matchesStatus = filterStatus === 'All' || b.status === filterStatus;
-
-                return matchesDate && matchesHall && matchesRole && matchesName && matchesStatus;
-            });
-
-            if (filteredBookings.length === 0) {
-                body.innerHTML = '<tr><td colspan="8" class="text-center">No bookings found for these filters.</td></tr>';
-                return;
-            }
-
-            // Sort by date and start time (most recent date first)
-            filteredBookings.sort((a, b) => (b.date + b.startTime).localeCompare(a.date + a.startTime));
-
-            // Update the table with filtered results
-            filteredBookings.forEach(b => {
-                const tr = document.createElement('tr');
-                const statusClass = b.status.toLowerCase().replace(/ /g, '-');
-                tr.innerHTML = `
-                    <td>${b.userName}</td>
-                    <td>${b.userRole.charAt(0).toUpperCase() + b.userRole.slice(1)}</td>
-                    <td>${b.hall}</td>
-                    <td>${b.date}</td>
-                    <td>${b.startTime}</td>
-                    <td>${b.endTime}</td>
-                    <td>${b.purpose}</td>
-                    <td><span class="badge badge-${statusClass}">${b.status}</span></td>
-                `;
-                body.appendChild(tr);
-            });
+        function initResourceFilter() {
+            const filter = document.getElementById('filterResource');
+            if (!filter) return;
+            filter.innerHTML = '<option value="All">All Resources</option>';
+            halls.forEach(h => filter.innerHTML += `<option value="Hall:${h.id}">Hall ${h.id}</option>`);
+            labs.forEach(l => filter.innerHTML += `<option value="Lab:${l}">${l}</option>`);
         }
 
-        /**
-         * Triggered when the 'Apply Filter' button is clicked.
-         */
-        function applyFilters() {
-            renderAllBookingsTable();
+        function updatePCList() {
+            const pcSelect = document.getElementById('bookPCNumber');
+            pcSelect.innerHTML = '';
+            computers.forEach(pc => pcSelect.innerHTML += `<option value="${pc}">${pc}</option>`);
         }
 
-        /**
-         * Resets all filter inputs and refreshes the table.
-         */
-        function clearFilters() {
-            document.getElementById('filterDate').value = '';
-            document.getElementById('filterHall').value = 'All';
-            document.getElementById('filterRole').value = 'All';
-            document.getElementById('filterName').value = '';
-            document.getElementById('filterStatus').value = 'All';
-            renderAllBookingsTable();
-        }
-
-        function openBookingForm(hallId) {
+        function openBookingForm(type, resourceId) {
             document.getElementById('bookingFormWrapper').classList.remove('hidden');
-            document.getElementById('bookingHallTitle').innerText = `Book Hall ${hallId}`;
-            document.getElementById('bookHallNumber').value = hallId;
+            document.getElementById('bookType').value = type;
             document.getElementById('bookUserName').value = currentUser.name;
             document.getElementById('bookUserRole').value = currentUser.role;
-            
-            // Auto-filter the existing bookings table to this hall for convenience
-            const filter = document.getElementById('filterHall');
-            if (filter) {
-                filter.value = hallId;
-                renderAllBookingsTable();
+
+            if (type === 'Hall') {
+                document.getElementById('bookingHallTitle').innerText = `Book Hall ${resourceId}`;
+                document.getElementById('hallFields').classList.remove('hidden');
+                document.getElementById('labFields').classList.add('hidden');
+                document.getElementById('bookHallNumber').value = resourceId;
+                
+                const filter = document.getElementById('filterResource');
+                if (filter) { filter.value = `Hall:${resourceId}`; renderAllBookingsTable(); }
+            } else {
+                document.getElementById('bookingHallTitle').innerText = `Book PC in ${resourceId}`;
+                document.getElementById('hallFields').classList.add('hidden');
+                document.getElementById('labFields').classList.remove('hidden');
+                const labSelect = document.getElementById('bookLabName');
+                labSelect.innerHTML = '';
+                labs.forEach(l => labSelect.innerHTML += `<option value="${l}" ${l === resourceId ? 'selected' : ''}>${l}</option>`);
+                updatePCList();
+
+                const filter = document.getElementById('filterResource');
+                if (filter) { filter.value = `Lab:${resourceId}`; renderAllBookingsTable(); }
             }
-            
             window.scrollTo(0, document.getElementById('bookingFormWrapper').offsetTop - 100);
         }
 
@@ -1005,32 +976,33 @@
 
         document.getElementById('hallBookingForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            
-            const hall = document.getElementById('bookHallNumber').value;
+            const type = document.getElementById('bookType').value;
             const date = document.getElementById('bookDate').value;
             const startTime = document.getElementById('bookStartTime').value;
             const endTime = document.getElementById('bookEndTime').value;
 
-            if (startTime >= endTime) {
-                return alert('End time must be after start time.');
+            if (startTime >= endTime) return alert('End time must be after start time.');
+
+            let conflict = false;
+            let hallNum = '', labName = '', pcNum = '';
+
+            if (type === 'Hall') {
+                hallNum = document.getElementById('bookHallNumber').value;
+                conflict = bookings.some(b => b.bookingType === 'Hall' && b.hallNumber === hallNum && b.date === date && !['Declined', 'Cancelled'].includes(b.status) && startTime < b.endTime && endTime > b.startTime);
+            } else {
+                labName = document.getElementById('bookLabName').value;
+                pcNum = document.getElementById('bookPCNumber').value;
+                conflict = bookings.some(b => b.bookingType === 'Computer' && b.labName === labName && b.computerNumber === pcNum && b.date === date && !['Declined', 'Cancelled'].includes(b.status) && startTime < b.endTime && endTime > b.startTime);
             }
 
-            // --- Time Clash Detection Logic ---
-            const hasClash = bookings.some(b => {
-                return b.hall === hall && 
-                       b.date === date && 
-                       !['Declined', 'Cancelled'].includes(b.status) &&
-                       startTime < b.endTime && 
-                       endTime > b.startTime;
-            });
+            if (conflict) return alert(type === 'Hall' ? 'This hall is already booked.' : 'This computer is already booked for the selected time. Please choose another computer or time slot.');
 
-            if (hasClash) {
-                return alert('This hall is already booked for the selected time. Please choose another time slot.');
-            }
-
-            const booking = {
+            bookings.push({
                 id: Date.now(),
-                hall: hall,
+                bookingType: type,
+                hallNumber: hallNum,
+                labName: labName,
+                computerNumber: pcNum,
                 userName: currentUser.name,
                 userEmail: currentUser.email,
                 userRole: currentUser.role,
@@ -1040,162 +1012,145 @@
                 purpose: document.getElementById('bookPurpose').value,
                 status: 'Pending',
                 cancelRequest: false
-            };
+            });
 
-            bookings.push(booking);
             localStorage.setItem('bookings', JSON.stringify(bookings));
             alert('Booking Request Sent!');
             cancelBooking();
             renderUserBookings();
-            renderAllBookingsTable(); // Update existing bookings table
+            renderAllBookingsTable();
         });
 
-        function renderUserBookings() {
-            const body = document.getElementById('userBookingsBody');
+        function renderAllBookingsTable() {
+            const body = document.getElementById('existingBookingsBody');
+            if (!body) return;
             body.innerHTML = '';
             
-            const myBookings = bookings.filter(b => b.userEmail === currentUser.email);
-            if (myBookings.length === 0) {
-                body.innerHTML = '<tr><td colspan="5" class="text-center">No bookings found.</td></tr>';
+            const filterDate = document.getElementById('filterDate').value;
+            const filterRes = document.getElementById('filterResource').value;
+            const filterRole = document.getElementById('filterRole').value;
+            const filterName = document.getElementById('filterName').value.toLowerCase();
+            const filterStatus = document.getElementById('filterStatus').value;
+
+            let filtered = bookings.filter(b => {
+                const matchesDate = filterDate === '' || b.date === filterDate;
+                const matchesRes = filterRes === 'All' || (filterRes.startsWith('Hall:') ? (b.bookingType === 'Hall' && b.hallNumber === filterRes.split(':')[1]) : (b.bookingType === 'Computer' && b.labName === filterRes.split(':')[1]));
+                const matchesRole = filterRole === 'All' || b.userRole.toLowerCase() === filterRole.toLowerCase();
+                const matchesName = filterName === '' || b.userName.toLowerCase().includes(filterName);
+                const matchesStatus = filterStatus === 'All' || b.status === filterStatus;
+                return matchesDate && matchesRes && matchesRole && matchesName && matchesStatus;
+            });
+
+            if (filtered.length === 0) {
+                body.innerHTML = '<tr><td colspan="8" class="text-center">No bookings found.</td></tr>';
                 return;
             }
 
-            myBookings.reverse().forEach(b => {
+            filtered.sort((a, b) => (b.date + b.startTime).localeCompare(a.date + a.startTime));
+            filtered.forEach(b => {
                 const tr = document.createElement('tr');
                 const statusClass = b.status.toLowerCase().replace(/ /g, '-');
-                tr.innerHTML = `
-                    <td>${b.hall}</td>
-                    <td>${b.date}</td>
-                    <td>${b.startTime} - ${b.endTime}</td>
-                    <td><span class="badge badge-${statusClass}">${b.status}</span></td>
-                    <td>
-                        ${(b.status === 'Approved' && !b.cancelRequest) ? `
-                            <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem;" onclick="requestCancellation(${b.id})">Request Cancellation</button>
-                        ` : '-'}
-                    </td>
-                `;
+                const resource = b.bookingType === 'Hall' ? `Hall ${b.hallNumber}` : `${b.labName} - ${b.computerNumber}`;
+                tr.innerHTML = `<td>${b.bookingType}</td><td>${resource}</td><td>${b.userName}</td><td>${b.userRole.charAt(0).toUpperCase() + b.userRole.slice(1)}</td><td>${b.date}</td><td>${b.startTime} - ${b.endTime}</td><td>${b.purpose}</td><td><span class="badge badge-${statusClass}">${b.status}</span></td>`;
                 body.appendChild(tr);
             });
         }
 
-        // --- Cancellation Logic ---
-        /**
-         * Logic to handle cancellation requests from students or lecturers.
-         */
+        function applyFilters() { renderAllBookingsTable(); }
+        function clearFilters() {
+            document.getElementById('filterDate').value = '';
+            document.getElementById('filterResource').value = 'All';
+            document.getElementById('filterRole').value = 'All';
+            document.getElementById('filterName').value = '';
+            document.getElementById('filterStatus').value = 'All';
+            renderAllBookingsTable();
+        }
+
+        function renderUserBookings() {
+            const body = document.getElementById('userBookingsBody');
+            if (!body) return;
+            body.innerHTML = '';
+            const my = bookings.filter(b => b.userEmail === currentUser.email);
+            if (my.length === 0) { body.innerHTML = '<tr><td colspan="6" class="text-center">No bookings found.</td></tr>'; return; }
+
+            my.reverse().forEach(b => {
+                const tr = document.createElement('tr');
+                const statusClass = b.status.toLowerCase().replace(/ /g, '-');
+                const resource = b.bookingType === 'Hall' ? `Hall ${b.hallNumber}` : `${b.labName} - ${b.computerNumber}`;
+                tr.innerHTML = `<td>${b.bookingType}</td><td>${resource}</td><td>${b.date}</td><td>${b.startTime} - ${b.endTime}</td><td><span class="badge badge-${statusClass}">${b.status}</span></td><td>${(b.status === 'Approved' && !b.cancelRequest) ? `<button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem;" onclick="requestCancellation(${b.id})">Request Cancellation</button>` : '-'}</td>`;
+                body.appendChild(tr);
+            });
+        }
+
         function requestCancellation(id) {
-            if (confirm('Are you sure you want to request a cancellation for this booking?')) {
-                const index = bookings.findIndex(b => b.id === id);
-                if (index !== -1) {
-                    bookings[index].cancelRequest = true;
-                    bookings[index].status = 'Cancellation Requested';
+            if (confirm('Request cancellation?')) {
+                const idx = bookings.findIndex(b => b.id === id);
+                if (idx !== -1) {
+                    bookings[idx].cancelRequest = true;
+                    bookings[idx].status = 'Cancellation Requested';
                     localStorage.setItem('bookings', JSON.stringify(bookings));
-                    alert('Cancellation request sent to Admin.');
+                    alert('Requested.');
                     renderUserBookings();
                     renderAllBookingsTable();
                 }
             }
         }
 
-        // --- Admin Management ---
         function renderAdminDashboard() {
-            const bookingBody = document.getElementById('adminBookingsBody');
-            bookingBody.innerHTML = '';
-
-            if (bookings.length === 0) {
-                bookingBody.innerHTML = '<tr><td colspan="9" class="text-center">No booking requests.</td></tr>';
-            } else {
-                bookings.slice().reverse().forEach(b => {
-                    const tr = document.createElement('tr');
-                    const statusClass = b.status.toLowerCase().replace(/ /g, '-');
-                    tr.innerHTML = `
-                        <td>${b.id.toString().slice(-4)}</td>
-                        <td>${b.userName}</td>
-                        <td>${b.userRole}</td>
-                        <td>${b.hall}</td>
-                        <td>${b.date}</td>
-                        <td>${b.startTime} - ${b.endTime}</td>
-                        <td><span class="badge badge-${statusClass}">${b.status}</span></td>
-                        <td>${b.cancelRequest ? '<span class="badge badge-cancellation-requested">Cancellation Requested</span>' : '-'}</td>
-                        <td>
-                            <div class="flex" style="flex-direction: column; gap: 5px;">
-                                ${b.status === 'Pending' ? `
-                                    <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem; border-color: green; color: green;" onclick="updateBookingStatus(${b.id}, 'Approved')">Approve</button>
-                                    <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem; border-color: red; color: red;" onclick="updateBookingStatus(${b.id}, 'Declined')">Reject</button>
-                                ` : ''}
-                                ${b.cancelRequest ? `
-                                    <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem; border-color: #9c27b0; color: #9c27b0;" onclick="handleCancellationAdmin(${b.id}, 'Approve')">Approve Cancellation</button>
-                                    <button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem; border-color: #333; color: #333;" onclick="handleCancellationAdmin(${b.id}, 'Reject')">Reject Cancellation</button>
-                                ` : ''}
-                                ${(!b.cancelRequest && b.status !== 'Pending') ? '-' : ''}
-                            </div>
-                        </td>
-                    `;
-                    bookingBody.appendChild(tr);
-                });
-            }
-
-            const userBody = document.getElementById('adminUsersBody');
-            userBody.innerHTML = '';
-            if (users.length === 0) {
-                userBody.innerHTML = '<tr><td colspan="4" class="text-center">No users registered.</td></tr>';
-            } else {
-                users.forEach(u => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${u.name}</td>
-                        <td>${u.id || '-'}</td>
-                        <td>${u.email}</td>
-                        <td>${u.role}</td>
-                    `;
-                    userBody.appendChild(tr);
-                });
-            }
+            const bBody = document.getElementById('adminBookingsBody');
+            bBody.innerHTML = '';
+            bookings.slice().reverse().forEach(b => {
+                const tr = document.createElement('tr');
+                const statusClass = b.status.toLowerCase().replace(/ /g, '-');
+                const resource = b.bookingType === 'Hall' ? `Hall ${b.hallNumber}` : `${b.labName} - ${b.computerNumber}`;
+                tr.innerHTML = `
+                    <td>${b.id.toString().slice(-4)}</td>
+                    <td>${b.userName}</td>
+                    <td>${b.userRole}</td>
+                    <td>${resource}</td>
+                    <td>${b.date}</td>
+                    <td>${b.startTime} - ${b.endTime}</td>
+                    <td>${b.purpose}</td>
+                    <td><span class="badge badge-${statusClass}">${b.status}</span></td>
+                    <td>${b.cancelRequest ? '<span class="badge badge-cancellation-requested">Cancellation Requested</span>' : '-'}</td>
+                    <td>
+                        <div class="flex" style="flex-direction: column; gap: 5px;">
+                            ${b.status === 'Pending' ? `
+                                <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:green;color:green;" onclick="updateBookingStatus(${b.id}, 'Approved')">Approve</button>
+                                <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:red;color:red;" onclick="updateBookingStatus(${b.id}, 'Declined')">Reject</button>
+                            ` : ''}
+                            ${b.cancelRequest ? `
+                                <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:#9c27b0;color:#9c27b0;" onclick="handleCancellationAdmin(${b.id}, 'Approve')">Approve Cancellation</button>
+                                <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:#333;color:#333;" onclick="handleCancellationAdmin(${b.id}, 'Reject')">Reject Cancellation</button>
+                            ` : ''}
+                            ${(!b.cancelRequest && b.status !== 'Pending') ? '-' : ''}
+                        </div>
+                    </td>
+                `;
+                bBody.appendChild(tr);
+            });
+            const uBody = document.getElementById('adminUsersBody');
+            uBody.innerHTML = '';
+            users.forEach(u => uBody.innerHTML += `<tr><td>${u.name}</td><td>${u.id || '-'}</td><td>${u.email}</td><td>${u.role}</td></tr>`);
         }
 
-        /**
-         * Logic for Admin to approve or reject cancellation requests.
-         */
         function handleCancellationAdmin(id, action) {
-            const index = bookings.findIndex(b => b.id === id);
-            if (index !== -1) {
-                if (action === 'Approve') {
-                    bookings[index].status = 'Cancelled';
-                    bookings[index].cancelRequest = false;
-                } else {
-                    bookings[index].status = 'Approved';
-                    bookings[index].cancelRequest = false;
-                }
+            const idx = bookings.findIndex(b => b.id === id);
+            if (idx !== -1) {
+                if (action === 'Approve') { bookings[idx].status = 'Cancelled'; bookings[idx].cancelRequest = false; }
+                else { bookings[idx].status = 'Approved'; bookings[idx].cancelRequest = false; }
                 localStorage.setItem('bookings', JSON.stringify(bookings));
                 renderAdminDashboard();
                 renderAllBookingsTable();
             }
         }
 
-        function updateBookingStatus(id, newStatus) {
-            const index = bookings.findIndex(b => b.id === id);
-            if (index !== -1) {
-                bookings[index].status = newStatus;
-                localStorage.setItem('bookings', JSON.stringify(bookings));
-                renderAdminDashboard();
-                renderAllBookingsTable();
-            }
+        function updateBookingStatus(id, status) {
+            const idx = bookings.findIndex(b => b.id === id);
+            if (idx !== -1) { bookings[idx].status = status; localStorage.setItem('bookings', JSON.stringify(bookings)); renderAdminDashboard(); renderAllBookingsTable(); }
         }
 
-        // --- Init ---
-        // Seed some data if empty (optional)
-        if (users.length === 0) {
-            // Optional: add a dummy student/lecturer for testing
-        }
-
-        // Initial Page Load
-        window.onload = () => {
-            if (currentUser) {
-                goToHome();
-            } else {
-                showPage('landing');
-            }
-        };
-
+        window.onload = () => { if (currentUser) goToHome(); else showPage('landing'); };
     </script>
 </body>
 </html>
