@@ -262,19 +262,37 @@
 
         .message-card h4 {
             color: var(--primary-color);
-            margin-bottom: 0.5rem;
-        }
-
-        .message-card p {
-            margin-bottom: 0.8rem;
-        }
-
-        .message-suggestion {
-            background: #fff9c4;
-            padding: 10px;
-            border-radius: 5px;
             margin-bottom: 1rem;
+        }
+
+        .message-card .message-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 1rem;
+        }
+
+        .message-box {
+            padding: 15px;
+            border-radius: 8px;
             font-size: 0.9rem;
+        }
+
+        .original-box {
+            background: #f1f8e9;
+            border: 1px solid #c5e1a5;
+        }
+
+        .suggestion-box {
+            background: #fff9c4;
+            border: 1px solid #fff59d;
+        }
+
+        .message-box h5 {
+            margin-bottom: 8px;
+            color: var(--primary-color);
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            padding-bottom: 5px;
         }
 
         /* --- Modal (Simple Overlay) --- */
@@ -392,7 +410,7 @@
 
     <!-- Header / Navigation -->
     <header>
-        <h1 onclick="goToHome()" style="cursor: pointer;">
+        <h1>
             <i class="fas fa-university"></i> UCSC Booking
         </h1>
         <nav id="main-nav">
@@ -460,7 +478,6 @@
                     <table id="adminBookingsTable">
                         <thead>
                             <tr>
-                                <th>ID</th>
                                 <th>Name</th>
                                 <th>Role</th>
                                 <th>Hall/Lab-PC</th>
@@ -469,6 +486,7 @@
                                 <th>Purpose</th>
                                 <th>Status</th>
                                 <th>Cancellation Request</th>
+                                <th>Change Request Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -822,6 +840,7 @@
                                 <th>Resource</th>
                                 <th>Date</th>
                                 <th>Time</th>
+                                <th>Purpose</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -836,9 +855,12 @@
 
         <!-- 6. Messages Page (New) -->
         <section id="messages-page">
-            <div class="text-center">
-                <h2>Notifications & Messages</h2>
-                <p>Important updates regarding your bookings.</p>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                <div style="flex: 1; text-align: center;">
+                    <h2>Notifications & Messages</h2>
+                    <p>Important updates regarding your bookings.</p>
+                </div>
+                <button class="btn btn-outline" style="width: auto; position: absolute; right: 5%;" onclick="showPage('booking-page')">Go Back</button>
             </div>
             <div id="messagesContainer" class="mt-2">
                 <!-- JS will populate -->
@@ -1216,13 +1238,13 @@
             if (!body) return;
             body.innerHTML = '';
             const my = bookings.filter(b => b.userEmail === currentUser.email);
-            if (my.length === 0) { body.innerHTML = '<tr><td colspan="6" class="text-center">No bookings found.</td></tr>'; return; }
+            if (my.length === 0) { body.innerHTML = '<tr><td colspan="7" class="text-center">No bookings found.</td></tr>'; return; }
 
             my.reverse().forEach(b => {
                 const tr = document.createElement('tr');
                 const statusClass = b.status.toLowerCase().replace(/ /g, '-');
                 const resource = b.bookingType === 'Hall' ? `Hall ${b.hallNumber}` : `${b.labName} - ${b.computerNumber}`;
-                tr.innerHTML = `<td>${b.bookingType}</td><td>${resource}</td><td>${b.date}</td><td>${b.startTime} - ${b.endTime}</td><td><span class="badge badge-${statusClass}">${b.status}</span></td><td>${(b.status === 'Approved' && !b.cancelRequest) ? `<button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem;" onclick="requestCancellation(${b.id})">Request Cancellation</button>` : '-'}</td>`;
+                tr.innerHTML = `<td>${b.bookingType}</td><td>${resource}</td><td>${b.date}</td><td>${b.startTime} - ${b.endTime}</td><td>${b.purpose}</td><td><span class="badge badge-${statusClass}">${b.status}</span></td><td>${(b.status === 'Approved' && !b.cancelRequest) ? `<button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem;" onclick="requestCancellation(${b.id})">Request Cancellation</button>` : '-'}</td>`;
                 body.appendChild(tr);
             });
         }
@@ -1232,7 +1254,7 @@
                 const idx = bookings.findIndex(b => b.id === id);
                 if (idx !== -1) {
                     bookings[idx].cancelRequest = true;
-                    bookings[idx].status = 'Cancellation Requested';
+                    bookings[idx].cancellationStatus = 'Cancellation Requested';
                     localStorage.setItem('bookings', JSON.stringify(bookings));
                     alert('Requested.');
                     renderUserBookings();
@@ -1248,9 +1270,9 @@
             bBody.innerHTML = '';
             bookings.slice().reverse().forEach(b => {
                 const tr = document.createElement('tr');
-                const statusClass = b.status.toLowerCase().replace(/ /g, '-');
                 const resource = b.bookingType === 'Hall' ? `Hall ${b.hallNumber}` : `${b.labName} - ${b.computerNumber}`;
                 
+                // Change Request Status Logic
                 const msg = messages.find(m => m.bookingID === b.id);
                 let msgStatus = 'No Message';
                 if (msg) {
@@ -1259,26 +1281,38 @@
                     else if (msg.responseStatus === 'Rejected') msgStatus = '<span class="badge badge-rejected">Rejected</span>';
                 }
 
+                // Cancellation Request Status Logic
+                let cancelCol = '-';
+                if (b.cancellationStatus) {
+                    const cStatusClass = b.cancellationStatus.toLowerCase().replace(/ /g, '-');
+                    cancelCol = `<span class="badge badge-${cStatusClass}">${b.cancellationStatus}</span>`;
+                } else if (b.cancelRequest) {
+                    cancelCol = '<span class="badge badge-cancellation-requested">Cancellation Requested</span>';
+                }
+
+                // Booking Status should only show Approved or Rejected (or Pending)
+                const statusClass = b.status.toLowerCase().replace(/ /g, '-');
+
                 tr.innerHTML = `
-                    <td>${b.id.toString().slice(-4)}</td>
                     <td>${b.userName}</td>
                     <td>${b.userRole}</td>
                     <td>${resource}</td>
                     <td>${b.date}</td>
                     <td>${b.startTime} - ${b.endTime}</td>
                     <td>${b.purpose}</td>
-                    <td><span class="badge badge-${statusClass}">${b.status}</span><br><small>${msgStatus}</small></td>
-                    <td>${b.cancelRequest ? '<span class="badge badge-cancellation-requested">Cancellation Requested</span>' : '-'}</td>
+                    <td><span class="badge badge-${statusClass}">${b.status}</span></td>
+                    <td>${cancelCol}</td>
+                    <td>${msgStatus}</td>
                     <td>
                         <div class="flex" style="flex-direction: column; gap: 5px;">
                             ${b.status === 'Pending' ? `
                                 <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:green;color:green;" onclick="updateBookingStatus(${b.id}, 'Approved')">Approve</button>
-                                <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:red;color:red;" onclick="updateBookingStatus(${b.id}, 'Declined')">Reject</button>
+                                <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:red;color:red;" onclick="updateBookingStatus(${b.id}, 'Rejected')">Reject</button>
                             ` : ''}
-                            ${b.status === 'Approved' && !msg ? `
+                            ${b.status === 'Approved' && !msg && (!b.cancellationStatus || b.cancellationStatus === 'Rejected Cancellation') ? `
                                 <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:var(--primary-color);color:var(--primary-color);" onclick="openChangeRequest(${b.id})">Send Change Request</button>
                             ` : ''}
-                            ${b.cancelRequest ? `
+                            ${(b.cancelRequest || b.cancellationStatus === 'Cancellation Requested') && b.cancellationStatus !== 'Cancelled' ? `
                                 <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:#9c27b0;color:#9c27b0;" onclick="handleCancellationAdmin(${b.id}, 'Approve')">Approve Cancellation</button>
                                 <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:#333;color:#333;" onclick="handleCancellationAdmin(${b.id}, 'Reject')">Reject Cancellation</button>
                             ` : ''}
@@ -1293,13 +1327,28 @@
         }
 
         function openChangeRequest(bookingId) {
+            const booking = bookings.find(b => b.id === bookingId);
+            if (!booking) return;
+
             document.getElementById('changeRequestModal').classList.remove('hidden');
             document.getElementById('changeBookingId').value = bookingId;
+            
+            // Populate resource selects
             const hSelect = document.getElementById('changeHallId');
-            hSelect.innerHTML = halls.map(h => `<option value="${h.id}">${h.id}</option>`).join('');
+            // Filter out the current hall from suggestions
+            const filteredHalls = halls.filter(h => h.id !== booking.hallNumber);
+            hSelect.innerHTML = filteredHalls.map(h => `<option value="${h.id}">${h.id}</option>`).join('');
+            
             const lSelect = document.getElementById('changeLabName');
             lSelect.innerHTML = labs.map(l => `<option value="${l}">${l}</option>`).join('');
-            updateChangePCList();
+            
+            // Pre-fill with existing booking details
+            document.getElementById('changeResType').value = booking.bookingType;
+            document.getElementById('changeDate').value = booking.date;
+            document.getElementById('changeStartTime').value = booking.startTime;
+            document.getElementById('changeEndTime').value = booking.endTime;
+
+            toggleChangeResFields(); // Show correct fields (Hall or Lab)
         }
 
         function closeChangeRequest() {
@@ -1316,11 +1365,22 @@
                 document.getElementById('changeHallFields').classList.add('hidden');
                 document.getElementById('changeLabFields').classList.remove('hidden');
             }
+            updateChangePCList(); // Filter PCs based on lab and current booking
         }
 
         function updateChangePCList() {
             const pcSelect = document.getElementById('changePCNumber');
-            pcSelect.innerHTML = computers.map(pc => `<option value="${pc}">${pc}</option>`).join('');
+            const bookingId = parseInt(document.getElementById('changeBookingId').value);
+            const booking = bookings.find(b => b.id === bookingId);
+            const currentLab = document.getElementById('changeLabName').value;
+
+            let filteredPCs = computers;
+            // If the suggestion is in the same lab as the original booking, filter out the original computer
+            if (booking && booking.bookingType === 'Computer' && booking.labName === currentLab) {
+                filteredPCs = computers.filter(pc => pc !== booking.computerNumber);
+            }
+
+            pcSelect.innerHTML = filteredPCs.map(pc => `<option value="${pc}">${pc}</option>`).join('');
         }
 
         document.getElementById('changeRequestForm').addEventListener('submit', (e) => {
@@ -1361,15 +1421,33 @@
                 return;
             }
             myMessages.reverse().forEach(m => {
+                const b = bookings.find(book => book.id === m.bookingID);
+                if (!b) return;
+
                 const div = document.createElement('div');
                 div.className = 'message-card';
+                
+                const originalResource = b.bookingType === 'Hall' ? `Hall ${b.hallNumber}` : `${b.labName} - ${b.computerNumber}`;
+                
                 div.innerHTML = `
                     <h4>Booking Change Requested</h4>
                     <p><strong>Admin Message:</strong> ${m.messageText}</p>
-                    <div class="message-suggestion">
-                        <strong>Suggestion:</strong> ${m.suggestedType} ${m.suggestedResource} <br>
-                        <strong>Time:</strong> ${m.suggestedDate} | ${m.suggestedStartTime} - ${m.suggestedEndTime}
+                    
+                    <div class="message-grid">
+                        <div class="message-box original-box">
+                            <h5>Original Booking</h5>
+                            <strong>Resource:</strong> ${originalResource}<br>
+                            <strong>Date:</strong> ${b.date}<br>
+                            <strong>Time:</strong> ${b.startTime} - ${b.endTime}
+                        </div>
+                        <div class="message-box suggestion-box">
+                            <h5>Admin's Suggestion</h5>
+                            <strong>Resource:</strong> ${m.suggestedType} ${m.suggestedResource}<br>
+                            <strong>Date:</strong> ${m.suggestedDate}<br>
+                            <strong>Time:</strong> ${m.suggestedStartTime} - ${m.suggestedEndTime}
+                        </div>
                     </div>
+
                     <p>Status: <span class="badge badge-${m.responseStatus.toLowerCase()}">${m.responseStatus}</span></p>
                     ${m.responseStatus === 'Pending' ? `
                         <div class="flex">
@@ -1412,13 +1490,20 @@
             localStorage.setItem('messages', JSON.stringify(messages));
             renderMessagesPage();
             updateNav();
+            showPage('booking-page');
         }
 
         function handleCancellationAdmin(id, action) {
             const idx = bookings.findIndex(b => b.id === id);
             if (idx !== -1) {
-                if (action === 'Approve') { bookings[idx].status = 'Cancelled'; bookings[idx].cancelRequest = false; }
-                else { bookings[idx].status = 'Approved'; bookings[idx].cancelRequest = false; }
+                if (action === 'Approve') { 
+                    bookings[idx].cancellationStatus = 'Cancelled'; 
+                    bookings[idx].cancelRequest = false; 
+                }
+                else { 
+                    bookings[idx].cancellationStatus = 'Rejected Cancellation'; 
+                    bookings[idx].cancelRequest = false; 
+                }
                 localStorage.setItem('bookings', JSON.stringify(bookings));
                 renderAdminDashboard();
                 renderAllBookingsTable();
