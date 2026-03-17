@@ -1690,6 +1690,7 @@
             // Default date to today
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('bookDate').value = today;
+            document.getElementById('bookDate').setAttribute('min', today);
 
             if (type === 'Hall') {
                 document.getElementById('bookingHallTitle').innerText = `Book Hall ${resourceId}`;
@@ -1718,6 +1719,19 @@
             const date = document.getElementById('bookDate').value;
             const startTime = document.getElementById('bookStartTime').value;
             const endTime = document.getElementById('bookEndTime').value;
+
+            // Date & Time Validation
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+            const currentTimeStr = now.toTimeString().slice(0, 5); // "HH:MM"
+
+            if (date < todayStr) {
+                return alert('Booking date cannot be in the past.');
+            }
+
+            if (date === todayStr && startTime <= currentTimeStr) {
+                return alert('For today\'s booking, the start time must be later than the current time.');
+            }
 
             if (startTime >= endTime) return alert('End time must be after start time.');
 
@@ -1966,6 +1980,9 @@
             document.getElementById('changeRequestModal').classList.remove('hidden');
             document.getElementById('changeBookingId').value = bookingId;
             
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('changeDate').setAttribute('min', today);
+
             // Populate resource selects
             const hSelect = document.getElementById('changeHallId');
             // Filter out the current hall from suggestions
@@ -2018,6 +2035,25 @@
 
         document.getElementById('changeRequestForm').addEventListener('submit', (e) => {
             e.preventDefault();
+            const date = document.getElementById('changeDate').value;
+            const startTime = document.getElementById('changeStartTime').value;
+            const endTime = document.getElementById('changeEndTime').value;
+
+            // Date & Time Validation
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+            const currentTimeStr = now.toTimeString().slice(0, 5); // "HH:MM"
+
+            if (date < todayStr) {
+                return alert('Suggested date cannot be in the past.');
+            }
+
+            if (date === todayStr && startTime <= currentTimeStr) {
+                return alert('For today\'s suggestion, the start time must be later than the current time.');
+            }
+
+            if (startTime >= endTime) return alert('End time must be after start time.');
+
             const bookingId = parseInt(document.getElementById('changeBookingId').value);
             const booking = bookings.find(b => b.id === bookingId);
             const type = document.getElementById('changeResType').value;
