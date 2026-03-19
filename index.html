@@ -1432,8 +1432,62 @@
 
     </div>
 
+    <!-- Password Reset Modal (For First-time Admins) -->
+    <div id="passwordResetModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 class="text-center">Set Your New Password</h2>
+            <p class="text-center">This is your first login. For security reasons, please update your temporary password.</p>
+            <form id="passwordResetForm" class="mt-2">
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" id="resetNewPassword" required placeholder="Enter new password">
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <input type="password" id="resetConfirmPassword" required placeholder="Confirm new password">
+                </div>
+                <button type="submit" class="btn">Update and Continue</button>
+            </form>
+        </div>
+    </div>
+
     <!-- JavaScript -->
     <script>
+        // --- First Login Intercept Logic ---
+        function handleFirstLoginReset() {
+            document.getElementById('passwordResetModal').classList.remove('hidden');
+        }
+
+        document.getElementById('passwordResetForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newPass = document.getElementById('resetNewPassword').value;
+            const confirmPass = document.getElementById('resetConfirmPassword').value;
+
+            if (!newPass || !confirmPass) {
+                return alert('Please fill in both password fields.');
+            }
+
+            if (newPass !== confirmPass) {
+                return alert('Passwords do not match.');
+            }
+
+            // Data Update: Update the user's password in the admins array in localStorage
+            const adminIdx = admins.findIndex(a => a.email === currentUser.email);
+            if (adminIdx !== -1) {
+                admins[adminIdx].password = newPass;
+                admins[adminIdx].isFirstLogin = false; // Set isFirstLogin: false
+                localStorage.setItem('admins', JSON.stringify(admins));
+                
+                // Update current session
+                currentUser.isFirstLogin = false;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                
+                document.getElementById('passwordResetModal').classList.add('hidden');
+                alert('Password updated successfully! Welcome to the dashboard.');
+                showPage('admin-dashboard');
+            }
+        });
+
         // --- Notification System ---
         function createNotification(userEmail, message) {
             const notifications = JSON.parse(localStorage.getItem('userNotifications')) || [];
@@ -1665,7 +1719,15 @@
 
         function goToHome() {
             if (currentUser) {
-                if (currentUser.role === 'admin') showPage('admin-dashboard');
+                if (currentUser.role === 'admin') {
+                    // Interception: If isFirstLogin is true, show reset modal instead of dashboard
+                    if (currentUser.isFirstLogin && !currentUser.isSystemAdmin) {
+                        showPage('admin-login'); // Show login page as background
+                        handleFirstLoginReset();
+                    } else {
+                        showPage('admin-dashboard');
+                    }
+                }
                 else showPage('booking-page');
             } else {
                 showPage('landing');
@@ -1696,7 +1758,7 @@
             showPage('landing');
         }
 
-        // --- Authentication (Updated to support multiple admins) ---
+        // --- Authentication (Updated to support multiple admins & First Login Intercept) ---
         document.getElementById('adminLoginForm').addEventListener('submit', (e) => {
             e.preventDefault();
             const email = document.getElementById('adminEmail').value;
@@ -1711,10 +1773,17 @@
                     role: 'admin', 
                     email: adminUser.email,
                     isAdmin: true,
-                    isSystemAdmin: adminUser.isSystemAdmin || false
+                    isSystemAdmin: adminUser.isSystemAdmin || false,
+                    isFirstLogin: adminUser.isFirstLogin || false // Interception: Carry flag to session
                 };
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                showPage('admin-dashboard');
+                
+                // Redirection: If isFirstLogin is true, show reset modal instead of dashboard
+                if (currentUser.isFirstLogin && !currentUser.isSystemAdmin) {
+                    handleFirstLoginReset();
+                } else {
+                    showPage('admin-dashboard');
+                }
                 showStoredNotifications(email);
             } else {
                 alert('Invalid Admin Credentials');
@@ -1773,7 +1842,8 @@
                 password: password,
                 role: 'admin',
                 isAdmin: true,
-                isSystemAdmin: false
+                isSystemAdmin: false,
+                isFirstLogin: true // Flagging: Set to true for new admins created by System Admin
             });
 
             localStorage.setItem('admins', JSON.stringify(admins));
