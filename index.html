@@ -1248,7 +1248,7 @@
                 <h3 class="text-center">Existing Resource Bookings</h3>
                 
                 <!-- Filter Panel -->
-                <div class="filter-panel">
+                <div class="filter-panel" style="justify-content: center;">
                     <div class="filter-group">
                         <label>Date Filter</label>
                         <input type="date" id="filterDate">
@@ -1260,7 +1260,7 @@
                             <!-- JS will populate options -->
                         </select>
                     </div>
-                    <div class="filter-group">
+                    <div class="filter-group" id="filterRoleGroup">
                         <label>Role Filter</label>
                         <select id="filterRole">
                             <option value="All">All</option>
@@ -1268,7 +1268,7 @@
                             <option value="lecturer">Lecturer</option>
                         </select>
                     </div>
-                    <div class="filter-group">
+                    <div class="filter-group" id="filterNameGroup">
                         <label>Name Filter</label>
                         <input type="text" id="filterName" placeholder="Search name...">
                     </div>
@@ -1290,8 +1290,8 @@
                 </div>
 
                 <div class="table-container">
-                    <table>
-                        <thead>
+                    <table id="existingBookingsTable">
+                        <thead id="existingBookingsHeader">
                             <tr>
                                 <th>Type</th>
                                 <th>Resource</th>
@@ -2086,15 +2086,39 @@
             renderAllBookingsTable();
         });
 
+        /**
+         * Privacy Logic:
+         * For students and lecturers, we hide personal details (Name, Role, Purpose) 
+         * and specific filters (Role, Name) in the public availability table.
+         * Admins retain full visibility for management purposes.
+         */
         function renderAllBookingsTable() {
             const body = document.getElementById('existingBookingsBody');
-            if (!body) return;
+            const header = document.getElementById('existingBookingsHeader');
+            if (!body || !header) return;
+            
+            const isAdmin = currentUser && currentUser.role === 'admin';
+            
+            // --- UI Visibility (Privacy Logic) ---
+            const filterRoleGrp = document.getElementById('filterRoleGroup');
+            const filterNameGrp = document.getElementById('filterNameGroup');
+            
+            if (isAdmin) {
+                if (filterRoleGrp) filterRoleGrp.style.display = 'block';
+                if (filterNameGrp) filterNameGrp.style.display = 'block';
+                header.innerHTML = `<tr><th>Type</th><th>Resource</th><th>Name</th><th>Role</th><th>Date</th><th>Time</th><th>Purpose</th><th>Status</th></tr>`;
+            } else {
+                if (filterRoleGrp) filterRoleGrp.style.display = 'none';
+                if (filterNameGrp) filterNameGrp.style.display = 'none';
+                header.innerHTML = `<tr><th>Resource</th><th>Date</th><th>Time</th><th>Status</th></tr>`;
+            }
+
             body.innerHTML = '';
             
             const filterDate = document.getElementById('filterDate').value;
             const filterRes = document.getElementById('filterResource').value;
-            const filterRole = document.getElementById('filterRole').value;
-            const filterName = document.getElementById('filterName').value.toLowerCase();
+            const filterRole = isAdmin ? document.getElementById('filterRole').value : 'All';
+            const filterName = isAdmin ? document.getElementById('filterName').value.toLowerCase() : '';
             const filterStatus = document.getElementById('filterStatus').value;
 
             let filtered = bookings.filter(b => {
@@ -2106,8 +2130,9 @@
                 return matchesDate && matchesRes && matchesRole && matchesName && matchesStatus;
             });
 
+            const colSpan = isAdmin ? 8 : 4;
             if (filtered.length === 0) {
-                body.innerHTML = '<tr><td colspan="8" class="text-center">No bookings found.</td></tr>';
+                body.innerHTML = `<tr><td colspan="${colSpan}" class="text-center">No bookings found.</td></tr>`;
                 return;
             }
 
@@ -2116,7 +2141,13 @@
                 const tr = document.createElement('tr');
                 const statusClass = b.status.toLowerCase().replace(/ /g, '-');
                 const resource = b.bookingType === 'Hall' ? `Hall ${b.hallNumber}` : `${b.labName} - ${b.computerNumber}`;
-                tr.innerHTML = `<td>${b.bookingType}</td><td>${resource}</td><td>${b.userName}</td><td>${b.userRole.charAt(0).toUpperCase() + b.userRole.slice(1)}</td><td>${b.date}</td><td>${b.startTime} - ${b.endTime}</td><td>${b.purpose}</td><td><span class="badge badge-${statusClass}">${b.status}</span></td>`;
+                
+                if (isAdmin) {
+                    tr.innerHTML = `<td>${b.bookingType}</td><td>${resource}</td><td>${b.userName}</td><td>${b.userRole.charAt(0).toUpperCase() + b.userRole.slice(1)}</td><td>${b.date}</td><td>${b.startTime} - ${b.endTime}</td><td>${b.purpose}</td><td><span class="badge badge-${statusClass}">${b.status}</span></td>`;
+                } else {
+                    // Privacy: Resource (Hall/Lab), Date, Time (Combined Start/End), Status
+                    tr.innerHTML = `<td>${resource}</td><td>${b.date}</td><td>${b.startTime} - ${b.endTime}</td><td><span class="badge badge-${statusClass}">${b.status}</span></td>`;
+                }
                 body.appendChild(tr);
             });
         }
