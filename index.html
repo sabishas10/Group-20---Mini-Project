@@ -946,6 +946,49 @@
                     </table>
                 </div>
             </div>
+
+            <!-- Staff Management Section (Visible only to System Admin) -->
+            <div id="staffManagementSection" class="mt-2" style="display: none;">
+                <hr style="margin: 2rem 0; border: 0; border-top: 2px solid var(--border-color);">
+                <h3>Staff Management</h3>
+                <p>Only the System Admin can manage other administrative accounts.</p>
+                
+                <div class="form-container" style="max-width: 600px; margin: 1.5rem auto;">
+                    <h4>Add New Admin</h4>
+                    <form id="addAdminForm">
+                        <div class="form-group">
+                            <label>Full Name</label>
+                            <input type="text" id="newAdminName" required placeholder="Enter full name">
+                        </div>
+                        <div class="form-group">
+                            <label>Admin Email</label>
+                            <input type="email" id="newAdminEmail" required placeholder="admin.name@ucsc.lk">
+                        </div>
+                        <div class="form-group">
+                            <label>Temporary Password</label>
+                            <input type="password" id="newAdminPassword" required placeholder="Enter temporary password">
+                        </div>
+                        <button type="submit" class="btn">Create Admin</button>
+                    </form>
+                </div>
+                
+                <h4>Current Admin Accounts</h4>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminListBody">
+                            <!-- JS will populate -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </section>
 
         <!-- Lecturer Section -->
@@ -1587,6 +1630,22 @@
 
         let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
         let users = JSON.parse(localStorage.getItem('users')) || [];
+        let admins = JSON.parse(localStorage.getItem('admins')) || [];
+        
+        // --- System Admin Initialization ---
+        // Root Account: Define the very first admin account in localStorage as the System Admin.
+        if (admins.length === 0) {
+            admins.push({
+                name: 'System Admin',
+                email: 'admin@ucsc.lk',
+                password: 'admin123',
+                role: 'admin',
+                isAdmin: true,
+                isSystemAdmin: true
+            });
+            localStorage.setItem('admins', JSON.stringify(admins));
+        }
+
         let bookings = JSON.parse(localStorage.getItem('bookings')) || [];
         let messages = JSON.parse(localStorage.getItem('messages')) || [];
 
@@ -1637,18 +1696,99 @@
             showPage('landing');
         }
 
-        // --- Authentication (Keep existing) ---
+        // --- Authentication (Updated to support multiple admins) ---
         document.getElementById('adminLoginForm').addEventListener('submit', (e) => {
             e.preventDefault();
             const email = document.getElementById('adminEmail').value;
             const password = document.getElementById('adminPassword').value;
-            if (email === 'admin@ucsc.lk' && password === 'admin123') {
-                currentUser = { name: 'Admin', role: 'admin', email: email };
+            
+            // Search in admins array instead of hardcoded check
+            const adminUser = admins.find(a => a.email === email && a.password === password);
+            
+            if (adminUser) {
+                currentUser = { 
+                    name: adminUser.name, 
+                    role: 'admin', 
+                    email: adminUser.email,
+                    isAdmin: true,
+                    isSystemAdmin: adminUser.isSystemAdmin || false
+                };
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 showPage('admin-dashboard');
                 showStoredNotifications(email);
-            } else alert('Invalid Admin Credentials');
+            } else {
+                alert('Invalid Admin Credentials');
+            }
         });
+
+        // Staff Management logic
+        function renderStaffManagement() {
+            const section = document.getElementById('staffManagementSection');
+            const listBody = document.getElementById('adminListBody');
+            
+            // Permission Gate: Only the System Admin should see and have access to the "Add New Admin" interface.
+            if (currentUser && currentUser.isSystemAdmin) {
+                section.style.display = 'block';
+                listBody.innerHTML = '';
+                
+                // Show all current Admin accounts (excluding the System Admin)
+                const secondaryAdmins = admins.filter(a => !a.isSystemAdmin);
+                
+                if (secondaryAdmins.length === 0) {
+                    listBody.innerHTML = '<tr><td colspan="4" class="text-center">No secondary admin accounts found.</td></tr>';
+                } else {
+                    secondaryAdmins.forEach(admin => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${admin.name}</td>
+                            <td>${admin.email}</td>
+                            <td>Secondary Admin</td>
+                            <td>
+                                <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:var(--danger);color:var(--danger);" onclick="removeAdmin('${admin.email}')">Remove</button>
+                            </td>
+                        `;
+                        listBody.appendChild(tr);
+                    });
+                }
+            } else {
+                section.style.display = 'none';
+            }
+        }
+
+        document.getElementById('addAdminForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = document.getElementById('newAdminName').value;
+            const email = document.getElementById('newAdminEmail').value;
+            const password = document.getElementById('newAdminPassword').value;
+
+            // Duplicate Prevention: Add validation to ensure a new admin email doesn't already exist in the users array.
+            const emailExists = admins.some(a => a.email === email) || users.some(u => u.email === email);
+            if (emailExists) {
+                return alert('This email is already registered in the system.');
+            }
+
+            admins.push({
+                name: name,
+                email: email,
+                password: password,
+                role: 'admin',
+                isAdmin: true,
+                isSystemAdmin: false
+            });
+
+            localStorage.setItem('admins', JSON.stringify(admins));
+            alert('New Admin Account Created Successfully!');
+            document.getElementById('addAdminForm').reset();
+            renderStaffManagement();
+        });
+
+        function removeAdmin(email) {
+            if (confirm(`Are you sure you want to remove the admin account for ${email}?`)) {
+                admins = admins.filter(a => a.email !== email);
+                localStorage.setItem('admins', JSON.stringify(admins));
+                renderStaffManagement();
+            }
+        }
 
         document.getElementById('lecturerSignupForm').addEventListener('submit', (e) => {
             e.preventDefault();
@@ -2099,6 +2239,7 @@
 
         // Admin Dashboard & Messaging Workflow
         function renderAdminDashboard() {
+            renderStaffManagement(); // Update staff management visibility and content
             populateAdminUserDropdown();
             renderFilteredAdminTable();
 
