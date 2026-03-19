@@ -1489,11 +1489,18 @@
                 </div>
             </div>
 
-            <!-- UCSC Official Academic Schedule Archive -->
-            <details class="mt-2">
-                <summary>Official Academic Schedule <i class="fas fa-calendar-alt"></i></summary>
-                <div class="details-content">
-                    <div class="table-container">
+            <!-- UCSC Official Academic Schedule Archive (Collapsible) -->
+            <div class="mt-2" id="academicScheduleSection" style="background: var(--card-bg); border-radius: 12px; box-shadow: var(--shadow); border: 1px solid var(--border-color); overflow: hidden;">
+                <!-- Clickable header -->
+                <div onclick="toggleAcademicSchedule()" style="display:flex; justify-content:space-between; align-items:center; padding:1rem 1.25rem; cursor:pointer; user-select:none; transition: background 0.2s ease;" onmouseover="this.style.background='var(--bg-color)'" onmouseout="this.style.background='transparent'" id="academicScheduleHeader">
+                    <h3 style="margin:0; font-size:1rem; font-weight:600; color:var(--text-color); display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-calendar-alt" style="color:var(--primary-color);"></i> Official Academic Schedule (Timetable)
+                    </h3>
+                    <i class="fas fa-chevron-down" id="academicScheduleChevron" style="color:var(--primary-color); font-size:0.85rem; transition: transform 0.3s ease;"></i>
+                </div>
+                <!-- Collapsible body (hidden by default) -->
+                <div id="academicScheduleBody_wrapper" style="display:none; border-top: 1px solid var(--border-color);">
+                    <div class="table-container" style="margin:0; border-radius:0; box-shadow:none; border:none;">
                         <table>
                             <thead>
                                 <tr>
@@ -1502,6 +1509,7 @@
                                     <th>Date</th>
                                     <th>Time</th>
                                     <th>Subject / Module</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="academicScheduleBody">
@@ -1510,7 +1518,7 @@
                         </table>
                     </div>
                 </div>
-            </details>
+            </div>
 
             <div class="mt-2">
                 <h3>Rejected Bookings</h3>
@@ -3353,8 +3361,12 @@
              * This table now only shows active requests (Pending & Approved).
              * Declined and Cancelled bookings remain in the database for auditing 
              * but are hidden from this specific dashboard view.
+             * Academic timetable entries (category === 'Academic') are NEVER shown here —
+             * they belong exclusively in the Official Academic Schedule section below.
              */
-            const activeBookings = allBookings.filter(b => b.status === 'Pending' || b.status === 'Approved');
+            const activeBookings = allBookings.filter(b =>
+                (b.status === 'Pending' || b.status === 'Approved') && b.category !== 'Academic'
+            );
 
             const filtered = activeBookings.filter(b => {
                 // Unified Resource Filter Logic
@@ -3435,7 +3447,7 @@
             body.innerHTML = '';
             const academic = bookings.filter(b => b.category === 'Academic');
             if (academic.length === 0) {
-                body.innerHTML = '<tr><td colspan="5" class="text-center">No official academic schedules imported.</td></tr>';
+                body.innerHTML = '<tr><td colspan="6" class="text-center">No official academic schedules imported.</td></tr>';
                 return;
             }
             // Sort by Hall, then Date, then Time
@@ -3448,9 +3460,34 @@
                     <td>${b.date}</td>
                     <td>${b.startTime} - ${b.endTime}</td>
                     <td>${b.purpose.replace('Lecture: ', '')}</td>
+                    <td>
+                        <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:var(--danger);color:var(--danger);" onclick="deleteAcademicEntry(${b.id})">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </td>
                 `;
                 body.appendChild(tr);
             });
+        }
+
+        // Delete a single academic timetable entry
+        function deleteAcademicEntry(id) {
+            if (!confirm('Remove this academic schedule entry?')) return;
+            const idx = bookings.findIndex(b => b.id === id);
+            if (idx !== -1) {
+                bookings.splice(idx, 1);
+                localStorage.setItem('bookings', JSON.stringify(bookings));
+                renderAcademicScheduleTable();
+            }
+        }
+
+        // Toggle Academic Schedule collapsible
+        function toggleAcademicSchedule() {
+            const wrapper = document.getElementById('academicScheduleBody_wrapper');
+            const chevron = document.getElementById('academicScheduleChevron');
+            const isOpen = wrapper.style.display !== 'none';
+            wrapper.style.display = isOpen ? 'none' : 'block';
+            chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
         }
 
         // Admin Dashboard & Messaging Workflow
