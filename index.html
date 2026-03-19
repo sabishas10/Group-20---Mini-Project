@@ -428,6 +428,20 @@
             padding-bottom: 5px;
         }
 
+        .suggestion-box-ui {
+            background: #fff9c4;
+            border: 1px solid #fff59d;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            color: #333;
+        }
+        [data-theme="dark"] .suggestion-box-ui {
+            background: #444026;
+            border-color: #665f33;
+            color: #e0e0e0;
+        }
+
         /* --- Modal (Simple Overlay) --- */
         .modal-overlay {
             position: fixed;
@@ -1295,6 +1309,10 @@
                             <button type="button" class="btn btn-outline" onclick="cancelBooking()">Cancel</button>
                         </div>
                     </form>
+                    <div id="suggestionBox" class="suggestion-box-ui hidden">
+                        <p id="suggestionMessage"></p>
+                        <button type="button" id="switchButton" class="btn mt-2">Switch to Recommended</button>
+                    </div>
                 </div>
             </div>
 
@@ -2105,8 +2123,78 @@
             window.scrollTo(0, document.getElementById('bookingFormWrapper').offsetTop - 100);
         }
 
+        // --- Recommendation Logic ---
+
+        /**
+         * checkTimeClash:
+         * Checks if a specific resource is already booked for the given time slot.
+         */
+        function checkTimeClash(type, resourceId, date, startTime, endTime, computerNumber = '') {
+            const excludedStatuses = ['Declined', 'Cancelled', 'Rejected'];
+            if (type === 'Hall') {
+                return bookings.some(b => b.bookingType === 'Hall' && b.hallNumber === resourceId && b.date === date && !excludedStatuses.includes(b.status) && startTime < b.endTime && endTime > b.startTime);
+            } else {
+                return bookings.some(b => b.bookingType === 'Computer' && b.labName === resourceId && b.computerNumber === computerNumber && b.date === date && !excludedStatuses.includes(b.status) && startTime < b.endTime && endTime > b.startTime);
+            }
+        }
+
+        /**
+         * findRecommendation:
+         * Capacity-First filtering logic:
+         * 1. Availability: Must be 100% free for the exact Date, Start Time, and End Time requested.
+         * 2. Type Match: If a user requested a "Hall," suggest a "Hall." If "Lab," suggest a "Lab."
+         * 3. Capacity Match: Suggested hall must have capacity >= originally selected hall.
+         * 4. Selection: Picks the one with the closest matching capacity to minimize waste.
+         */
+        function findRecommendation(type, originalResourceId, date, startTime, endTime, originalPCNum = '') {
+            if (type === 'Hall') {
+                const originalHall = halls.find(h => h.id === originalResourceId);
+                if (!originalHall) return null;
+                const originalCapacity = originalHall.capacity;
+
+                const availableHalls = halls.filter(h => {
+                    if (h.id === originalResourceId) return false;
+                    if (h.capacity < originalCapacity) return false;
+                    return !checkTimeClash('Hall', h.id, date, startTime, endTime);
+                });
+
+                if (availableHalls.length === 0) return null;
+
+                // Sort by capacity to find the closest match
+                availableHalls.sort((a, b) => a.capacity - b.capacity);
+                return { type: 'Hall', resource: availableHalls[0] };
+            } else {
+                // For Labs, suggest the first available Lab/PC combo
+                for (const lab of labs) {
+                    for (const pc of computers) {
+                        if (lab === originalResourceId && pc === originalPCNum) continue;
+                        if (!checkTimeClash('Computer', lab, date, startTime, endTime, pc)) {
+                            return { type: 'Computer', labName: lab, computerNumber: pc };
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        /**
+         * switchToRecommended:
+         * Automatically updates the form fields with the suggested resource and clears error UI.
+         */
+        function switchToRecommended(recommendation) {
+            if (recommendation.type === 'Hall') {
+                document.getElementById('bookHallNumber').value = recommendation.resource.id;
+            } else {
+                document.getElementById('bookLabName').value = recommendation.labName;
+                document.getElementById('bookPCNumber').value = recommendation.computerNumber;
+                updateVisualPCGrid();
+            }
+            document.getElementById('suggestionBox').classList.add('hidden');
+        }
+
         function cancelBooking() {
             document.getElementById('bookingFormWrapper').classList.add('hidden');
+            document.getElementById('suggestionBox').classList.add('hidden');
             document.getElementById('hallBookingForm').reset();
         }
 
@@ -2134,18 +2222,36 @@
 
             let conflict = false;
             let hallNum = '', labName = '', pcNum = '';
-            const excludedStatuses = ['Declined', 'Cancelled', 'Rejected'];
 
             if (type === 'Hall') {
                 hallNum = document.getElementById('bookHallNumber').value;
-                conflict = bookings.some(b => b.bookingType === 'Hall' && b.hallNumber === hallNum && b.date === date && !excludedStatuses.includes(b.status) && startTime < b.endTime && endTime > b.startTime);
+                conflict = checkTimeClash('Hall', hallNum, date, startTime, endTime);
             } else {
                 labName = document.getElementById('bookLabName').value;
                 pcNum = document.getElementById('bookPCNumber').value;
-                conflict = bookings.some(b => b.bookingType === 'Computer' && b.labName === labName && b.computerNumber === pcNum && b.date === date && !excludedStatuses.includes(b.status) && startTime < b.endTime && endTime > b.startTime);
+                conflict = checkTimeClash('Computer', labName, date, startTime, endTime, pcNum);
             }
 
-            if (conflict) return alert(type === 'Hall' ? 'This hall is already booked.' : 'This computer is already booked for the selected time. Please choose another computer or time slot.');
+            if (conflict) {
+                // Recommendation Logic Trigger
+                const recommendation = findRecommendation(type, type === 'Hall' ? hallNum : labName, date, startTime, endTime, pcNum);
+                const suggestionBox = document.getElementById('suggestionBox');
+                const suggestionMessage = document.getElementById('suggestionMessage');
+                const switchButton = document.getElementById('switchButton');
+
+                if (recommendation) {
+                    const recName = recommendation.type === 'Hall' ? `Hall ${recommendation.resource.id}` : `${recommendation.labName} - ${recommendation.computerNumber}`;
+                    suggestionMessage.innerText = `Selected resource is unavailable. However, ${recName} is available and meets your capacity needs. Would you like to switch?`;
+                    switchButton.innerText = `Switch to ${recName}`;
+                    switchButton.onclick = () => switchToRecommended(recommendation);
+                    suggestionBox.classList.remove('hidden');
+                    alert('Selected slot is unavailable. See the recommendation below.');
+                } else {
+                    alert(type === 'Hall' ? 'This hall is already booked and no alternatives are available.' : 'This computer is already booked and no alternatives are available.');
+                    suggestionBox.classList.add('hidden');
+                }
+                return;
+            }
 
             bookings.push({
                 id: Date.now(),
