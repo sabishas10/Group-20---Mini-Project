@@ -685,6 +685,51 @@
             nav ul { flex-wrap: wrap; justify-content: center; }
             .card-container { grid-template-columns: 1fr; }
         }
+
+        /* --- Admin Filter Bar --- */
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            background: var(--white);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            align-items: flex-end;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex: 1 1 150px;
+        }
+
+        .filter-group label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .filter-group select, .filter-group input {
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        [data-theme="dark"] .filter-bar {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+        }
     </style>
 </head>
 <body>
@@ -756,7 +801,64 @@
             <h2 class="text-center">Admin Dashboard</h2>
             
             <div class="mt-2">
-                <h3>Pending & Approved Bookings</h3>
+                <h3>Admin Control: Unified Resource Filter</h3>
+                <div class="filter-bar">
+                    <div class="filter-group">
+                        <label>Resource:</label>
+                        <select id="adminFilterResource">
+                            <option value="All">All Resources</option>
+                            <option value="Hall S104">Hall S104</option>
+                            <option value="Hall S102">Hall S102</option>
+                            <option value="Hall S202">Hall S202</option>
+                            <option value="Hall S203">Hall S203</option>
+                            <option value="Hall W001">Hall W001</option>
+                            <option value="Hall W002">Hall W002</option>
+                            <option value="Hall E205">Hall E205 (Mini Auditorium)</option>
+                            <option value="Hall E401">Hall E401</option>
+                            <option value="Lab A">Lab A</option>
+                            <option value="Lab B">Lab B</option>
+                            <option value="Lab C">Lab C</option>
+                            <option value="Lab D">Lab D</option>
+                            <option value="Lab E">Lab E</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Date:</label>
+                        <input type="date" id="adminFilterDate">
+                    </div>
+                    <div class="filter-group">
+                        <label>Role:</label>
+                        <select id="adminFilterRole">
+                            <option value="All">All</option>
+                            <option value="Student">Student</option>
+                            <option value="Lecturer">Lecturer</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Status:</label>
+                        <select id="adminFilterStatus">
+                            <option value="All">All</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Declined">Declined</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Name:</label>
+                        <select id="adminFilterName">
+                            <option value="All">All Users</option>
+                        </select>
+                    </div>
+                    <div class="filter-buttons">
+                        <button class="btn" onclick="applyAdminFilters()">Apply Filter</button>
+                        <button class="btn btn-outline" onclick="clearAdminFilters()">Clear Filter</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-2">
+                <h3>Filtered Booking Results</h3>
                 <div class="table-container">
                     <table id="adminBookingsTable">
                         <thead>
@@ -1849,23 +1951,104 @@
             }
         }
 
-        // Admin Dashboard & Messaging Workflow
-        function renderAdminDashboard() {
+        // --- Admin Filtering System ---
+        /**
+         * Logic Explanation:
+         * The Unified Resource Filter merges Hall and Lab filtering into one dropdown.
+         * For Halls: It checks if bookingType is 'Hall' and matches the hallNumber (e.g., 'S104').
+         * For Labs: It checks if bookingType is 'Computer' (internal type for labs) and matches the labName (e.g., 'Lab A').
+         * This allows the administrator to view all resource requests from a single horizontal filter bar.
+         */
+        function populateAdminUserDropdown() {
+            const select = document.getElementById('adminFilterName');
+            if (!select) return;
+            const currentVal = select.value;
+            select.innerHTML = '<option value="All">All Users</option>';
+            
+            // Get fresh users list from localStorage
+            const allUsers = JSON.parse(localStorage.getItem('users')) || [];
+            const uniqueNames = [...new Set(allUsers.map(u => u.name))].sort();
+            
+            uniqueNames.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                if (name === currentVal) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        function applyAdminFilters() {
+            renderFilteredAdminTable();
+        }
+
+        function clearAdminFilters() {
+            document.getElementById('adminFilterResource').value = 'All';
+            document.getElementById('adminFilterDate').value = '';
+            document.getElementById('adminFilterRole').value = 'All';
+            document.getElementById('adminFilterStatus').value = 'All';
+            document.getElementById('adminFilterName').value = 'All';
+            renderFilteredAdminTable();
+        }
+
+        function renderFilteredAdminTable() {
             const bBody = document.getElementById('adminBookingsBody');
             if (!bBody) return;
+
+            const resFilter = document.getElementById('adminFilterResource').value;
+            const dateFilter = document.getElementById('adminFilterDate').value;
+            const roleFilter = document.getElementById('adminFilterRole').value;
+            const statusFilter = document.getElementById('adminFilterStatus').value;
+            const nameFilter = document.getElementById('adminFilterName').value;
+
+            // Pull fresh data from localStorage as per requirements
+            const allBookings = JSON.parse(localStorage.getItem('bookings')) || [];
+            const allMessages = JSON.parse(localStorage.getItem('messages')) || [];
+            
+            const filtered = allBookings.filter(b => {
+                // Unified Resource Filter Logic
+                let resourceMatch = true;
+                if (resFilter !== 'All') {
+                    if (resFilter.startsWith('Hall')) {
+                        const hNum = resFilter.replace('Hall ', '').split(' (')[0];
+                        resourceMatch = (b.bookingType === 'Hall' && b.hallNumber === hNum);
+                    } else if (resFilter.startsWith('Lab')) {
+                        // The system uses 'Computer' as the bookingType for labs
+                        resourceMatch = (b.bookingType === 'Computer' && b.labName === resFilter);
+                    }
+                }
+
+                const dateMatch = (dateFilter === '' || b.date === dateFilter);
+                const roleMatch = (roleFilter === 'All' || b.userRole.toLowerCase() === roleFilter.toLowerCase());
+                
+                let statusMatch = true;
+                if (statusFilter !== 'All') {
+                    if (statusFilter === 'Declined') {
+                        statusMatch = (b.status === 'Rejected' || b.status === 'Declined');
+                    } else if (statusFilter === 'Cancelled') {
+                        statusMatch = (b.status === 'Cancelled' || b.cancellationStatus === 'Cancelled');
+                    } else {
+                        statusMatch = (b.status === statusFilter);
+                    }
+                }
+
+                const nameMatch = (nameFilter === 'All' || b.userName === nameFilter);
+
+                return resourceMatch && dateMatch && roleMatch && statusMatch && nameMatch;
+            });
+
             bBody.innerHTML = '';
-            // Main Dashboard: Show everything EXCEPT Rejected, Declined, or Cancelled
-            bookings.slice().reverse().filter(b => 
-                b.status !== 'Rejected' && 
-                b.status !== 'Declined' && 
-                b.status !== 'Cancelled' &&
-                b.cancellationStatus !== 'Cancelled'
-            ).forEach(b => {
+            if (filtered.length === 0) {
+                bBody.innerHTML = '<tr><td colspan="10" class="text-center">No matching bookings found.</td></tr>';
+                return;
+            }
+
+            // Render table rows (Latest first)
+            filtered.reverse().forEach(b => {
                 const tr = document.createElement('tr');
                 const resource = b.bookingType === 'Hall' ? `Hall ${b.hallNumber}` : `${b.labName} - ${b.computerNumber}`;
                 
-                // Change Request Status Logic
-                const msg = messages.find(m => m.bookingID === b.id);
+                const msg = allMessages.find(m => m.bookingID === b.id);
                 let msgStatus = 'No Message';
                 if (msg) {
                     if (msg.responseStatus === 'Pending') msgStatus = '<span class="badge badge-pending">Pending Response</span>';
@@ -1873,7 +2056,6 @@
                     else if (msg.responseStatus === 'Rejected') msgStatus = '<span class="badge badge-rejected">Rejected</span>';
                 }
 
-                // Cancellation Request Status Logic
                 let cancelCol = '-';
                 if (b.cancellationStatus) {
                     const cStatusClass = b.cancellationStatus.toLowerCase().replace(/ /g, '-');
@@ -1913,6 +2095,12 @@
                 `;
                 bBody.appendChild(tr);
             });
+        }
+
+        // Admin Dashboard & Messaging Workflow
+        function renderAdminDashboard() {
+            populateAdminUserDropdown();
+            renderFilteredAdminTable();
 
             // Populate Rejected Bookings
             const dBody = document.getElementById('adminDeclinedBody');
@@ -1969,8 +2157,10 @@
             }
 
             const uBody = document.getElementById('adminUsersBody');
-            uBody.innerHTML = '';
-            users.forEach(u => uBody.innerHTML += `<tr><td>${u.name}</td><td>${u.id || '-'}</td><td>${u.email}</td><td>${u.role}</td></tr>`);
+            if (uBody) {
+                uBody.innerHTML = '';
+                users.forEach(u => uBody.innerHTML += `<tr><td>${u.name}</td><td>${u.id || '-'}</td><td>${u.email}</td><td>${u.role}</td></tr>`);
+            }
         }
 
         function openChangeRequest(bookingId) {
