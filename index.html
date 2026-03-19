@@ -801,7 +801,7 @@
             <h2 class="text-center">Admin Dashboard</h2>
             
             <div class="mt-2">
-                <h3>Admin Control: Unified Resource Filter</h3>
+                <h3>Resource Filter</h3>
                 <div class="filter-bar">
                     <div class="filter-group">
                         <label>Resource:</label>
@@ -840,8 +840,6 @@
                             <option value="All">All</option>
                             <option value="Pending">Pending</option>
                             <option value="Approved">Approved</option>
-                            <option value="Declined">Declined</option>
-                            <option value="Cancelled">Cancelled</option>
                         </select>
                     </div>
                     <div class="filter-group">
@@ -858,7 +856,7 @@
             </div>
 
             <div class="mt-2">
-                <h3>Filtered Booking Results</h3>
+                <h3>Pending & Approved Bookings</h3>
                 <div class="table-container">
                     <table id="adminBookingsTable">
                         <thead>
@@ -2252,7 +2250,15 @@
             const allBookings = JSON.parse(localStorage.getItem('bookings')) || [];
             const allMessages = JSON.parse(localStorage.getItem('messages')) || [];
             
-            const filtered = allBookings.filter(b => {
+            /**
+             * Positive Filter Logic:
+             * This table now only shows active requests (Pending & Approved).
+             * Declined and Cancelled bookings remain in the database for auditing 
+             * but are hidden from this specific dashboard view.
+             */
+            const activeBookings = allBookings.filter(b => b.status === 'Pending' || b.status === 'Approved');
+
+            const filtered = activeBookings.filter(b => {
                 // Unified Resource Filter Logic
                 let resourceMatch = true;
                 if (resFilter !== 'All') {
@@ -2270,13 +2276,7 @@
                 
                 let statusMatch = true;
                 if (statusFilter !== 'All') {
-                    if (statusFilter === 'Declined') {
-                        statusMatch = (b.status === 'Rejected' || b.status === 'Declined');
-                    } else if (statusFilter === 'Cancelled') {
-                        statusMatch = (b.status === 'Cancelled' || b.cancellationStatus === 'Cancelled');
-                    } else {
-                        statusMatch = (b.status === statusFilter);
-                    }
+                    statusMatch = (b.status === statusFilter);
                 }
 
                 const nameMatch = (nameFilter === 'All' || b.userName === nameFilter);
