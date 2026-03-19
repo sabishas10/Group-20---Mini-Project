@@ -8,6 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- XLSX library for Excel processing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
             --primary-color: #0d47a1; /* UCSC Blue */
@@ -854,7 +856,12 @@
 
         <!-- Admin Dashboard -->
         <section id="admin-dashboard">
-            <h2 class="text-center">Admin Dashboard</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2 style="flex: 1; text-align: center; margin-left: 140px;">Admin Dashboard</h2>
+                <button class="btn btn-outline" style="width: auto; background-color: var(--accent-color); color: var(--primary-color); font-weight: 700;" onclick="openTimetableOverlay()">
+                    <i class="fas fa-calendar-plus"></i> Add Timetable
+                </button>
+            </div>
             
             <!-- Analytics Summary Bar -->
             <div class="analytics-bar mt-2">
@@ -950,6 +957,29 @@
                     </table>
                 </div>
             </div>
+
+            <!-- UCSC Official Academic Schedule Archive -->
+            <details class="mt-2">
+                <summary>Official Academic Schedule <i class="fas fa-calendar-alt"></i></summary>
+                <div class="details-content">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Hall</th>
+                                    <th>Semester</th>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Subject / Module</th>
+                                </tr>
+                            </thead>
+                            <tbody id="academicScheduleBody">
+                                <!-- JS will populate -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
 
             <div class="mt-2">
                 <h3>Rejected Bookings</h3>
@@ -1524,8 +1554,341 @@
         </div>
     </div>
 
+    <!-- Timetable Import Overlay -->
+    <div id="timetableOverlay" class="modal-overlay hidden" style="background: rgba(0,0,0,0.9);">
+        <div class="modal-content" style="max-width: 800px; padding: 3rem; position: relative;">
+            <button class="btn-clear" style="position: absolute; top: 20px; right: 20px; font-size: 1.5rem;" onclick="closeTimetableOverlay()"><i class="fas fa-times"></i></button>
+            <h2 class="text-center" style="color: var(--primary-color);">Semester Lecture Timetable Import</h2>
+            <p class="text-center">Bulk-upload lecture schedules for the entire semester using an Excel file.</p>
+            
+            <form id="timetableImportForm" class="mt-2">
+                <div class="card-container" style="grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+                    <div class="form-group">
+                        <label>Calendar Year</label>
+                        <select id="importYear" required>
+                            <option value="2025">2025</option>
+                            <option value="2026">2026</option>
+                            <option value="2027">2027</option>
+                            <option value="2028">2028</option>
+                            <option value="2029">2029</option>
+                            <option value="2030">2030</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Semester</label>
+                        <select id="importSemester" required>
+                            <option value="Semester 1">Semester 1</option>
+                            <option value="Semester 2">Semester 2</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Semester Start Date</label>
+                        <input type="date" id="semesterStart" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Semester End Date</label>
+                        <input type="date" id="semesterEnd" required>
+                    </div>
+                </div>
+
+                <div class="form-group mt-2">
+                    <label>Upload Excel File (.xlsx, .csv)</label>
+                    <div style="border: 2px dashed var(--primary-color); padding: 2rem; border-radius: 12px; text-align: center; background: var(--bg-color);">
+                        <i class="fas fa-file-excel" style="font-size: 3rem; color: var(--primary-color); margin-bottom: 1rem;"></i>
+                        <input type="file" id="timetableFile" accept=".xlsx, .csv" required style="display: block; margin: 0 auto;">
+                        <p style="font-size: 0.8rem; margin-top: 10px; color: #666;">Expected Columns: Day, Hall, Start Time, End Time, Subject</p>
+                    </div>
+                </div>
+
+                <div id="importProgress" class="hidden mt-2">
+                    <p id="progressStatus" style="font-weight: 600; text-align: center; margin-bottom: 5px;">Processing Timetable...</p>
+                    <div style="width: 100%; background: #eee; height: 15px; border-radius: 10px; overflow: hidden;">
+                        <div id="progressBar" style="width: 0%; height: 100%; background: var(--success); transition: width 0.3s ease;"></div>
+                    </div>
+                </div>
+
+                <div class="flex mt-2">
+                    <button type="submit" class="btn" id="btnRunImport">Start Automation</button>
+                    <button type="button" class="btn btn-outline" onclick="closeTimetableOverlay()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- JavaScript -->
     <script>
+        // --- Timetable Automation Logic ---
+
+        function openTimetableOverlay() {
+            document.getElementById('timetableOverlay').classList.remove('hidden');
+            
+            // Validation Logic: Disable past years/dates
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('semesterStart').setAttribute('min', today);
+            document.getElementById('semesterEnd').setAttribute('min', today);
+            
+            const currentYear = new Date().getFullYear();
+            const yearSelect = document.getElementById('importYear');
+            Array.from(yearSelect.options).forEach(opt => {
+                if (parseInt(opt.value) < currentYear) opt.disabled = true;
+            });
+        }
+
+        function closeTimetableOverlay() {
+            document.getElementById('timetableOverlay').classList.add('hidden');
+            document.getElementById('timetableImportForm').reset();
+            document.getElementById('importProgress').classList.add('hidden');
+            document.getElementById('progressBar').style.width = '0%';
+        }
+
+        /**
+         * getDatesForDayOfWeek:
+         * Weekly Recurrence Logic:
+         * Calculates all specific dates for a given day of the week (e.g., "Monday")
+         * that fall between a start and end date range.
+         */
+        function getDatesForDayOfWeek(dayName, startDate, endDate) {
+            const daysMap = { 'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6 };
+            const targetDay = daysMap[dayName.toLowerCase().trim()];
+            const dates = [];
+            
+            let current = new Date(startDate);
+            const end = new Date(endDate);
+
+            while (current <= end) {
+                if (current.getDay() === targetDay) {
+                    dates.push(new Date(current).toISOString().split('T')[0]);
+                }
+                current.setDate(current.getDate() + 1);
+            }
+            return dates;
+        }
+
+        /**
+         * convertTimetableTime:
+         * Helper to convert "8.00 am" or "1.00 pm" to "HH:mm" 24-hour format.
+         */
+        function convertTimetableTime(timeStr) {
+            if (!timeStr) return "";
+            timeStr = timeStr.toLowerCase().trim().replace(/[\. ]/g, ":").replace(/:+/g, ":");
+            
+            // Handle cases like "8:00am" or "1:00pm"
+            let isPM = timeStr.includes('pm');
+            let isAM = timeStr.includes('am');
+            let parts = timeStr.replace(/[ap]m/g, "").split(":");
+            
+            let h = parseInt(parts[0]);
+            let m = parts[1] ? parts[1].padStart(2, '0') : "00";
+
+            if (isPM && h < 12) h += 12;
+            if (isAM && h === 12) h = 0;
+            if (timeStr.includes('noon')) h = 12;
+
+            return `${h.toString().padStart(2, '0')}:${m}`;
+        }
+
+        document.getElementById('timetableImportForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            console.log("Automation Started"); 
+            
+            try {
+                const fileInput = document.getElementById('timetableFile');
+                const file = fileInput.files[0];
+                const start = document.getElementById('semesterStart').value;
+                const end = document.getElementById('semesterEnd').value;
+                const calendarYear = document.getElementById('importYear').value;
+                const semester = document.getElementById('importSemester').value;
+
+                if (!file) throw new Error("No file selected.");
+
+                // --- Validation Check ---
+                const startYear = new Date(start).getFullYear().toString();
+                const endYear = new Date(end).getFullYear().toString();
+
+                if (startYear !== calendarYear || endYear !== calendarYear) {
+                    return alert(`Validation Error: The selected Calendar Year (${calendarYear}) must match the year of the Start Date (${startYear}) and End Date (${endYear}).`);
+                }
+
+                if (start >= end) return alert('Semester End Date must be after Start Date.');
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = new Uint8Array(event.target.result);
+                        if (typeof XLSX === 'undefined') throw new Error("XLSX library not loaded.");
+                        
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        document.getElementById('importProgress').classList.remove('hidden');
+                        document.getElementById('btnRunImport').disabled = true;
+
+                        let totalImportedCount = 0;
+                        let totalConflictCount = 0;
+                        let hallsProcessed = 0;
+
+                        // --- Sheet-by-Sheet Iteration Begins ---
+                        workbook.SheetNames.forEach((sheetName, sheetIndex) => {
+                            const worksheet = workbook.Sheets[sheetName];
+                            const grid = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                            
+                            if (grid.length < 5) return; // Skip invalid sheets
+
+                            // 1. Dynamic Hall Identification: From Sheet Name or Cell A1
+                            let hallId = sheetName.trim().toUpperCase().replace(/[- ]/g, "");
+                            if (!hallId.match(/[WSE]\d{3}/)) {
+                                const titleRow = grid[0] ? grid[0].join(" ") : "";
+                                const hallMatch = titleRow.match(/[WSE][- ]?\d{3}/i); 
+                                hallId = hallMatch ? hallMatch[0].replace(/[- ]/, "").toUpperCase() : "";
+                            }
+
+                            if (!hallId) return; // Could not identify hall for this sheet
+                            hallsProcessed++;
+
+                            // 2. Identify Headers: Find the row containing "TIME"
+                            let headerRowIndex = -1;
+                            for (let i = 0; i < 6; i++) {
+                                if (grid[i] && grid[i].some(cell => cell && cell.toString().toUpperCase().includes("TIME"))) {
+                                    headerRowIndex = i;
+                                    break;
+                                }
+                            }
+                            if (headerRowIndex === -1) return;
+
+                            const headerRow = grid[headerRowIndex];
+                            const dayColumns = {};
+                            headerRow.forEach((cell, idx) => {
+                                if (!cell) return;
+                                const val = cell.toString().toUpperCase().trim();
+                                if (["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"].includes(val)) {
+                                    dayColumns[idx] = val;
+                                }
+                            });
+
+                            // 3. Matrix-Grid Parsing Logic
+                            // Logic for handling multi-row lecture merging.
+                            // We iterate through each Day Column first, then traverse rows vertically to detect merged lectures.
+                            Object.keys(dayColumns).forEach(colIdx => {
+                                let r = headerRowIndex + 1;
+                                while (r < grid.length) {
+                                    const row = grid[r];
+                                    if (!row || !row[0]) { r++; continue; }
+
+                                    const cellContent = row[colIdx];
+                                    if (cellContent && cellContent.toString().trim() !== "") {
+                                        const subject = cellContent.toString().replace(/\r?\n|\r/g, " ").trim();
+                                        const timeRange = row[0].toString().split("-");
+                                        if (timeRange.length < 2) { r++; continue; }
+
+                                        let startTime = convertTimetableTime(timeRange[0]);
+                                        let currentEndTime = convertTimetableTime(timeRange[1]);
+                                        if (!startTime || !currentEndTime) { r++; continue; }
+
+                                        // Vertical Expansion: Check if the same subject continues in subsequent rows
+                                        let nextR = r + 1;
+                                        while (nextR < grid.length) {
+                                            const nextRow = grid[nextR];
+                                            if (!nextRow || !nextRow[0]) break;
+                                            
+                                            const nextCellContent = nextRow[colIdx];
+                                            if (!nextCellContent) break;
+
+                                            const nextSubject = nextCellContent.toString().replace(/\r?\n|\r/g, " ").trim();
+                                            if (nextSubject !== subject) break;
+
+                                            // If it's the same subject, extend the endTime
+                                            const nextTimeRange = nextRow[0].toString().split("-");
+                                            if (nextTimeRange.length >= 2) {
+                                                const nextEndTime = convertTimetableTime(nextTimeRange[1]);
+                                                if (nextEndTime) currentEndTime = nextEndTime;
+                                            }
+                                            nextR++;
+                                        }
+
+                                        const dayName = dayColumns[colIdx];
+                                        const lectureDates = getDatesForDayOfWeek(dayName, start, end);
+
+                                        lectureDates.forEach(date => {
+                                            // Duplicate Prevention: Check for existing Academic entry
+                                            const isDuplicate = bookings.some(b => 
+                                                b.category === 'Academic' && 
+                                                b.hallNumber === hallId && 
+                                                b.date === date && 
+                                                b.startTime === startTime && 
+                                                b.endTime === currentEndTime
+                                            );
+                                            if (isDuplicate) return;
+
+                                            // Conflict Handling: Override manual entries (non-academic)
+                                            bookings = bookings.filter(b => {
+                                                const isClash = (b.category !== 'Academic' && b.bookingType === 'Hall' && b.hallNumber === hallId && b.date === date && startTime < b.endTime && currentEndTime > b.startTime);
+                                                if (isClash) totalConflictCount++;
+                                                return !isClash;
+                                            });
+
+                                            // Data Metadata: category: 'Academic'
+                                            bookings.push({
+                                                id: Date.now() + Math.random(),
+                                                bookingType: 'Hall',
+                                                hallNumber: hallId,
+                                                labName: '',
+                                                computerNumber: '',
+                                                userName: 'Academic Timetable',
+                                                userEmail: 'ucsc.academic@lk',
+                                                userRole: `Lecturer (${semester})`,
+                                                calendarYear: calendarYear,
+                                                category: 'Academic', 
+                                                date: date,
+                                                startTime: startTime,
+                                                endTime: currentEndTime,
+                                                purpose: `Lecture: ${subject}`,
+                                                status: 'Approved',
+                                                cancelRequest: false,
+                                                isTimetableImport: true
+                                            });
+                                            totalImportedCount++;
+                                        });
+
+                                        // Jump to the row after the merged lecture
+                                        r = nextR;
+                                    } else {
+                                        r++;
+                                    }
+                                }
+                            });
+                            
+                            const progress = ((sheetIndex + 1) / workbook.SheetNames.length) * 100;
+                            document.getElementById('progressBar').style.width = progress + '%';
+                        });
+
+                        // Finalize Import & Refresh UI
+                        localStorage.setItem('bookings', JSON.stringify(bookings));
+                        console.log("Automation Finished - " + totalImportedCount + " entries created.");
+                        
+                        setTimeout(() => {
+                            // Success Summary Alert
+                            alert(`Automation Complete: Processed ${hallsProcessed} halls and generated ${totalImportedCount} weekly lecture slots. ${totalConflictCount > 0 ? `\nNote: ${totalConflictCount} manual booking clashes were overridden.` : ''}`);
+                            closeTimetableOverlay();
+                            document.getElementById('btnRunImport').disabled = false;
+                            
+                            renderAdminDashboard();
+                            renderAllBookingsTable();
+                            location.reload(); 
+                        }, 500);
+
+                    } catch (innerError) {
+                        console.error("Inner Error:", innerError);
+                        alert("Automation Logic Error: " + innerError.message);
+                        document.getElementById('btnRunImport').disabled = false;
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+                
+            } catch (outerError) {
+                console.error("Outer Error:", outerError);
+                alert("Form Submission Error: " + outerError.message);
+            }
+        });
+
         // --- First Login Intercept Logic ---
         function handleFirstLoginReset() {
             document.getElementById('passwordResetModal').classList.remove('hidden');
@@ -2526,11 +2889,36 @@
             });
         }
 
+        function renderAcademicScheduleTable() {
+            const body = document.getElementById('academicScheduleBody');
+            if (!body) return;
+            body.innerHTML = '';
+            const academic = bookings.filter(b => b.category === 'Academic');
+            if (academic.length === 0) {
+                body.innerHTML = '<tr><td colspan="5" class="text-center">No official academic schedules imported.</td></tr>';
+                return;
+            }
+            // Sort by Hall, then Date, then Time
+            academic.sort((a, b) => (a.hallNumber + a.date + a.startTime).localeCompare(b.hallNumber + b.date + b.startTime));
+            academic.forEach(b => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>Hall ${b.hallNumber}</td>
+                    <td>${b.userRole.match(/\(([^)]+)\)/)?.[1] || 'N/A'}</td>
+                    <td>${b.date}</td>
+                    <td>${b.startTime} - ${b.endTime}</td>
+                    <td>${b.purpose.replace('Lecture: ', '')}</td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
         // Admin Dashboard & Messaging Workflow
         function renderAdminDashboard() {
             renderStaffManagement(); // Update staff management visibility and content
             populateAdminUserDropdown();
             renderFilteredAdminTable();
+            renderAcademicScheduleTable(); // New: Populate Academic Archive
 
             // Populate Rejected Bookings
             const dBody = document.getElementById('adminDeclinedBody');
