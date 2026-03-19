@@ -870,7 +870,6 @@
                                 <th>Time</th>
                                 <th>Purpose</th>
                                 <th>Status</th>
-                                <th>Cancellation Request</th>
                                 <th>Change Request Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -2173,19 +2172,26 @@
                 const tr = document.createElement('tr');
                 const statusClass = b.status.toLowerCase().replace(/ /g, '-');
                 const resource = b.bookingType === 'Hall' ? `Hall ${b.hallNumber}` : `${b.labName} - ${b.computerNumber}`;
-                tr.innerHTML = `<td>${b.bookingType}</td><td>${resource}</td><td>${b.date}</td><td>${b.startTime} - ${b.endTime}</td><td>${b.purpose}</td><td><span class="badge badge-${statusClass}">${b.status}</span></td><td>${(b.status === 'Approved' && !b.cancelRequest) ? `<button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem;" onclick="requestCancellation(${b.id})">Request Cancellation</button>` : '-'}</td>`;
+                // Button Rename: Changed from "Request Cancellation" to "Cancel Booking"
+                tr.innerHTML = `<td>${b.bookingType}</td><td>${resource}</td><td>${b.date}</td><td>${b.startTime} - ${b.endTime}</td><td>${b.purpose}</td><td><span class="badge badge-${statusClass}">${b.status}</span></td><td>${(b.status === 'Approved' || b.status === 'Pending') ? `<button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.8rem;" onclick="cancelBookingDirectly(${b.id})">Cancel Booking</button>` : '-'}</td>`;
                 body.appendChild(tr);
             });
         }
 
-        function requestCancellation(id) {
-            if (confirm('Request cancellation?')) {
+        /**
+         * User-direct Cancellation Logic:
+         * Workflow changed from "Admin-mediated" to "User-direct" for improved efficiency.
+         * Bookings are immediately marked as 'Cancelled', freeing the slot for others.
+         */
+        function cancelBookingDirectly(id) {
+            if (confirm('Are you sure you want to cancel this booking? This action is instant and cannot be undone.')) {
                 const idx = bookings.findIndex(b => b.id === id);
                 if (idx !== -1) {
-                    bookings[idx].cancelRequest = true;
-                    bookings[idx].cancellationStatus = 'Cancellation Requested';
+                    bookings[idx].status = 'Cancelled';
+                    bookings[idx].cancelRequest = false;
+                    bookings[idx].cancellationStatus = 'Cancelled';
                     localStorage.setItem('bookings', JSON.stringify(bookings));
-                    alert('Requested.');
+                    alert('Booking has been cancelled successfully.');
                     renderUserBookings();
                     renderAllBookingsTable();
                 }
@@ -2297,14 +2303,6 @@
                     else if (msg.responseStatus === 'Rejected') msgStatus = '<span class="badge badge-rejected">Rejected</span>';
                 }
 
-                let cancelCol = '-';
-                if (b.cancellationStatus) {
-                    const cStatusClass = b.cancellationStatus.toLowerCase().replace(/ /g, '-');
-                    cancelCol = `<span class="badge badge-${cStatusClass}">${b.cancellationStatus}</span>`;
-                } else if (b.cancelRequest) {
-                    cancelCol = '<span class="badge badge-cancellation-requested">Cancellation Requested</span>';
-                }
-
                 const statusClass = b.status.toLowerCase().replace(/ /g, '-');
 
                 tr.innerHTML = `
@@ -2315,7 +2313,6 @@
                     <td>${b.startTime} - ${b.endTime}</td>
                     <td>${b.purpose}</td>
                     <td><span class="badge badge-${statusClass}">${b.status}</span></td>
-                    <td>${cancelCol}</td>
                     <td>${msgStatus}</td>
                     <td>
                         <div class="flex" style="flex-direction: column; gap: 5px;">
@@ -2323,13 +2320,9 @@
                                 <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:green;color:green;" onclick="updateBookingStatus(${b.id}, 'Approved')">Approve</button>
                                 <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:red;color:red;" onclick="updateBookingStatus(${b.id}, 'Rejected')">Reject</button>
                             ` : ''}
-                            ${b.status === 'Approved' && !msg && (!b.cancellationStatus || b.cancellationStatus === 'Rejected Cancellation') ? `
+                            ${b.status === 'Approved' && !msg ? `
                                 <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:var(--primary-color);color:var(--primary-color);" onclick="openChangeRequest(${b.id})">Send Change Request</button>
                                 <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:var(--danger);color:var(--danger);" onclick="adminCancelApprovedBooking(${b.id})">Cancel Booking</button>
-                            ` : ''}
-                            ${(b.cancelRequest || b.cancellationStatus === 'Cancellation Requested') && b.cancellationStatus !== 'Cancelled' ? `
-                                <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:#9c27b0;color:#9c27b0;" onclick="handleCancellationAdmin(${b.id}, 'Approve')">Approve Cancellation</button>
-                                <button class="btn btn-outline" style="padding:2px 8px;font-size:0.8rem;border-color:#333;color:#333;" onclick="handleCancellationAdmin(${b.id}, 'Reject')">Reject Cancellation</button>
                             ` : ''}
                         </div>
                     </td>
@@ -2592,23 +2585,6 @@
             renderMessagesPage();
             updateNav();
             showPage('booking-page');
-        }
-
-        function handleCancellationAdmin(id, action) {
-            const idx = bookings.findIndex(b => b.id === id);
-            if (idx !== -1) {
-                if (action === 'Approve') { 
-                    bookings[idx].cancellationStatus = 'Cancelled'; 
-                    bookings[idx].cancelRequest = false; 
-                }
-                else { 
-                    bookings[idx].cancellationStatus = 'Rejected Cancellation'; 
-                    bookings[idx].cancelRequest = false; 
-                }
-                localStorage.setItem('bookings', JSON.stringify(bookings));
-                renderAdminDashboard();
-                renderAllBookingsTable();
-            }
         }
 
         function updateBookingStatus(id, status) {
